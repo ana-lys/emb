@@ -1,6 +1,0 @@
-devel_space: /home/analys/lidar_ws/src/aruco_detect/devel
-install: false
-install_space: /home/analys/lidar_ws/src/aruco_detect/install
-profile: default
-source_space: /home/analys/lidar_ws/src/aruco_detect/src
-workspace: /home/analys/lidar_ws/src/aruco_detect
