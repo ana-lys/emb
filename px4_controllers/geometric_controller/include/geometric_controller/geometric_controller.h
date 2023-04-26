@@ -42,7 +42,7 @@
 #include <geometric_controller/common.h>
 #include <geometric_controller/UTM.h>
 #include <geometric_controller/setmode.h>
-#include <geometric_controller/logging_lib.cpp>
+#include <geometric_controller/logging_lib.h>
 #include <std_srvs/SetBool.h>
 
 #include <nav_msgs/Odometry.h>
