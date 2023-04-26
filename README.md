@@ -1,11 +1,9 @@
 # uav_emb
 
-
-
 ## Uav controller : PX4 accel setpoint/velocity setpoint - Status : fieldtested
 * Q: What does it do ?
 * A: It control all uav behaviors which related to physical dynamic. These behaviors are covered in 5 controller modes : Onground, TakeOff , Hold , Land and MissionExecute.The state machine is included bellow.
-  - ![Screenshot](/mavros_controllers/docs/state_machine.png)
+  - ![Screenshot](/px4_controllers/docs/state_machine.png)
 * Q: Why using this system instead of writing predefined scenarios ?
 * A: These are some benefits:
   - It generalizes the use case ,using one code for all scenarios and types of input.
@@ -31,12 +29,12 @@
   - launch px4 mavros sitl
   - launch geometric_controller automatic.launch ( this will auto trigger px4 mode and arm state, for simulation purposes or no Rc mission. manual.launch is the opposite)
   - run geometric_controller stat ( an useful script to display controller information )
-  - ![Screenshot](/mavros_controllers/docs/stat.png)
+  - ![Screenshot](/px4_controllers/docs/stat.png)
   - rosservice call /controller/set_mode with mode = 1 and sub = 4.0 ( switch to mode TakeOff at height of 4.0 ; takeoff height is restricted to be lower than 5.1 meter) 
-  - ![Screenshot](/mavros_controllers/docs/setmode.png)
+  - ![Screenshot](/px4_controllers/docs/setmode.png)
   - rosservice call /controller/set_mode with mode = 3 (switch to mode MissionExecute. If your are unfamiliar with the setmode service, just call it with mode=a for more information) 
   - rostopic pub /controller/flatsetpoint with p = ( 2,0,4) and mask = 0 (send a command to the controller, this should be done by a planner/trajectory generator unless you are testing controller code)
-  - ![Screenshot](/mavros_controllers/docs/flat.png)
+  - ![Screenshot](/px4_controllers/docs/flat.png)
   - rostopic pub /controller/flatsetpoint with p = ( 2,2,4) and mask = 0
   - rosservice call /controller/set_mode with mode = 4 ( switch to mode land, the end of mode Execute, the drone now is landing toward 2,2,0)
   - After the drone is landed and disarmed successfully, mode is automatically switched to Onground, which indicates that the program is running correctly.
