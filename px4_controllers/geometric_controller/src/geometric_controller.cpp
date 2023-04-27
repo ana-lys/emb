@@ -112,16 +112,28 @@ void geometricCtrl::gpsrawCallback(const sensor_msgs::NavSatFix &msg){
     gps_home_init = true;
      gps_home(0) = msg.latitude;
      gps_home(1) = msg.longitude;
-     gps_home(2) = msg.altitude ; 
-    LatLonToUTMXY(gps_home(0),gps_home(1),48,UTM_HOME_X,UTM_HOME_Y);//32 zurich 48 VietNam
+     gps_home(2) = msg.altitude ;
+     string zone;
+    LatLonToUTMXY(gps_home(0),gps_home(1),32,UTM_HOME_X,UTM_HOME_Y);//32 zurich 48 VietNam
+    ROS_INFO_STREAM("latlon: " << UTM_HOME_X <<" " <<UTM_HOME_Y);
+    // LLtoUTM(gps_home(0),gps_home(1),UTM_HOME_X,UTM_HOME_Y,zone);
+    // ROS_INFO_STREAM("ll: " << UTM_HOME_X <<" " <<UTM_HOME_Y);
   }
  gpsraw(0) = msg.latitude;
  gpsraw(1) = msg.longitude;
  gpsraw(2) = msg.altitude ;
- LatLonToUTMXY(gpsraw(0),gpsraw(1),48,UTM_X,UTM_Y); //32 zurich 48 VietNam
+ LatLonToUTMXY(gpsraw(0),gpsraw(1),32,UTM_X,UTM_Y); //32 zurich 48 VietNam
  gps_pos(0) = UTM_X-UTM_HOME_X;
  gps_pos(1) = UTM_Y-UTM_HOME_Y;
  gps_pos(2) = mavPos_(2);
+ ROS_INFO_STREAM("latlon_pos: " << gps_pos(0) <<" " << gps_pos(1));
+//  string zone;
+//  LLtoUTM(gpsraw(0),gpsraw(1),UTM_X,UTM_Y,zone);
+//  gps_pos(0) = UTM_X-UTM_HOME_X;
+//  gps_pos(1) = UTM_Y-UTM_HOME_Y;
+//  gps_pos(2) = mavPos_(2);
+//  ROS_INFO_STREAM("ll: " << gps_pos(0) <<" " << gps_pos(1));
+
  geometry_msgs::PoseStamped tx = toGeometry_msgs(gps_pos,mavAtt_);
  debugGpsLocalPub_.publish(tx);
 }
@@ -432,7 +444,7 @@ Eigen::Vector3d geometricCtrl::controlPosition(const Eigen::Vector3d &target_pos
   const Eigen::Vector3d a_rd = Eigen::Vector3d::Zero();
   // Reference acceleration
   Eigen::Vector3d a_des = a_fb + a_ref - a_rd ;
-  Eigen::Vector3d zb = mavAtt_ * Eigen::Vector3d::UnitZ();
+  // Eigen::Vector3d zb = mavAtt_ * Eigen::Vector3d::UnitZ();
   return a_des;
 }
 double geometricCtrl::controlyawvel(){

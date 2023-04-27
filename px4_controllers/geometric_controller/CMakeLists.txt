@@ -67,8 +67,14 @@ add_executable(stat
   src/stat.cpp
 )
 
+add_executable(gps
+  src/gnss.cpp
+)
+
 add_dependencies(geometric_controller_node geometric_controller ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 
 target_link_libraries(geometric_controller_node ${PROJECT_NAME} ${catkin_LIBRARIES})
 
 target_link_libraries(stat ${PROJECT_NAME} ${catkin_LIBRARIES})
+
+target_link_libraries(gps ${PROJECT_NAME} ${catkin_LIBRARIES})

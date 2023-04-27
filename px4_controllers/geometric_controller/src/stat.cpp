@@ -154,7 +154,7 @@ pyschoPass(pose_status);
 }
 int main(int argc, char **argv) {
   
-  ros::init(argc, argv, "land");
+  ros::init(argc, argv, "controller_stat");
   ros::NodeHandle n;
   ros::Rate loop_rate(30);
   ros::Subscriber odomSub_ = n.subscribe("mavros/local_position/odom", 1, &odomCallback,
