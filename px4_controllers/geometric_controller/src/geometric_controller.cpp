@@ -114,10 +114,7 @@ void geometricCtrl::gpsrawCallback(const sensor_msgs::NavSatFix &msg){
      gps_home(1) = msg.longitude;
      gps_home(2) = msg.altitude ;
      string zone;
-    LatLonToUTMXY(gps_home(0),gps_home(1),32,UTM_HOME_X,UTM_HOME_Y);//32 zurich 48 VietNam
-    ROS_INFO_STREAM("latlon: " << UTM_HOME_X <<" " <<UTM_HOME_Y);
-    // LLtoUTM(gps_home(0),gps_home(1),UTM_HOME_X,UTM_HOME_Y,zone);
-    // ROS_INFO_STREAM("ll: " << UTM_HOME_X <<" " <<UTM_HOME_Y);
+    LatLonToUTMXY(gps_home(0),gps_home(1),48,UTM_HOME_X,UTM_HOME_Y);//32 zurich 48 VietNam
   }
  gpsraw(0) = msg.latitude;
  gpsraw(1) = msg.longitude;
@@ -126,14 +123,6 @@ void geometricCtrl::gpsrawCallback(const sensor_msgs::NavSatFix &msg){
  gps_pos(0) = UTM_X-UTM_HOME_X;
  gps_pos(1) = UTM_Y-UTM_HOME_Y;
  gps_pos(2) = mavPos_(2);
- ROS_INFO_STREAM("latlon_pos: " << gps_pos(0) <<" " << gps_pos(1));
-//  string zone;
-//  LLtoUTM(gpsraw(0),gpsraw(1),UTM_X,UTM_Y,zone);
-//  gps_pos(0) = UTM_X-UTM_HOME_X;
-//  gps_pos(1) = UTM_Y-UTM_HOME_Y;
-//  gps_pos(2) = mavPos_(2);
-//  ROS_INFO_STREAM("ll: " << gps_pos(0) <<" " << gps_pos(1));
-
  geometry_msgs::PoseStamped tx = toGeometry_msgs(gps_pos,mavAtt_);
  debugGpsLocalPub_.publish(tx);
 }
@@ -220,8 +209,6 @@ void geometricCtrl::mavposeCallback(const geometry_msgs::PoseStamped &msg) {
     received_home_pose = true;
     home_pose_ = msg.pose.position;
     ROS_INFO_STREAM("Home pose initialized to: " << home_pose_);
-    TakeOffTargetPos_ << home_pose_.x , home_pose_.y , initTargetPos_z_; 
-    ROS_INFO_STREAM("Setting take off target:" << home_pose_.x << ", " << home_pose_.y << ", " << initTargetPos_z_);
   }
   mavPos_ = toEigen(msg.pose.position); //- Eigen::Vector3d::UnitX() * 0.4 ;
   mavAtt_.w() = msg.pose.orientation.w;
