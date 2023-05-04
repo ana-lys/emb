@@ -4,7 +4,44 @@
 #include <geometry_msgs/PoseStamped.h>
 #include <geometry_msgs/Twist.h>
 #include <geometry_msgs/TwistStamped.h>
+#include <visualization_msgs/Marker.h>
 #include <Eigen/Dense>
+
+visualization_msgs::Marker drone_marker(){
+  visualization_msgs::Marker marker;
+  marker.header.frame_id = "map";
+  marker.header.stamp = ros::Time();
+  marker.ns = "drone";
+  marker.id = 0;
+  marker.type = visualization_msgs::Marker::MESH_RESOURCE;
+  marker.mesh_resource = "package://geometric_controller/mesh/quadrotor_2.stl";
+  marker.action = visualization_msgs::Marker::ADD;
+  marker.scale.x = 1.5;
+  marker.scale.y = 1.5;
+  marker.scale.z = 3.0;
+  marker.color.a = 1.0; 
+  marker.color.r = 0.01;
+  marker.color.g = 0.01;
+  marker.color.b = 0.5;
+  return marker;
+}
+
+visualization_msgs::Marker arrow_marker(){
+  visualization_msgs::Marker arrow;
+  arrow.header.frame_id = "map";
+  arrow.header.stamp = ros::Time();
+  arrow.ns = "drone";
+  arrow.id = 0;
+  arrow.type = visualization_msgs::Marker::ARROW;
+  arrow.scale.x = 0.2;
+  arrow.scale.y = 0.3;
+  arrow.scale.z = 0.1;
+  arrow.color.a = 1.0; 
+  arrow.color.r = 1.0;
+  arrow.color.g = 0.0;
+  arrow.color.b = 0.5;
+  return arrow;
+}
 
 static Eigen::Matrix3d matrix_hat(const Eigen::Vector3d &v) {
   Eigen::Matrix3d m;

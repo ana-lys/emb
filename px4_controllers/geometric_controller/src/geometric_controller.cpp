@@ -60,11 +60,15 @@ geometricCtrl::geometricCtrl(const ros::NodeHandle &nh, const ros::NodeHandle &n
   debugAccelPub_ = nh_.advertise<geometry_msgs::Point>("/debug/accel_command", 1);
   debugPosePub_ = nh_.advertise<geometry_msgs::Point>("/debug/pose_command", 1);
   debugVelPub_ = nh_.advertise<geometry_msgs::Point>("/debug/vel_command", 1);
+  debugDragPub_ = nh_.advertise<geometry_msgs::Point>("/debug/drag_coeff", 1);
   debugStatePub_ = nh_.advertise<std_msgs::Int16>("/debug/control_state", 1);
   // Visualize topics
   rvizPosePub_= nh_.advertise<visualization_msgs::Marker>( "/debug/rvisualize", 0 );
+  rvizAcelDesPub_= nh_.advertise<visualization_msgs::Marker>( "/debug/desired_acc", 0 );
   rvizPathPub_ = nh_.advertise<nav_msgs::Path>("/debug/path", 10);
-
+  rvizAcelPub_= nh_.advertise<visualization_msgs::Marker>( "/debug/acceleration", 0 );
+  rviz1Pub_= nh_.advertise<visualization_msgs::Marker>( "/debug/1", 0 );
+  rviz2Pub_= nh_.advertise<visualization_msgs::Marker>( "/debug/2", 0 );
   // Parameters loader                                
   nh_private_.param<string>("mavname", mav_name_, "iris");
   nh_private_.param<string>("log_folder", log_folder_, "iris");
@@ -84,6 +88,9 @@ geometricCtrl::geometricCtrl(const ros::NodeHandle &nh, const ros::NodeHandle &n
   nh_private_.param<double>("Ki_x", Kint_x_, 0.1);
   nh_private_.param<double>("Ki_y", Kint_y_, 0.1);
   nh_private_.param<double>("Ki_z", Kint_z_, 0.1);
+  nh_private_.param<double>("D_x", dx_, 0.1);
+  nh_private_.param<double>("D_y", dy_, 0.1);
+  nh_private_.param<double>("D_z", dz_, 0.1);
   nh_private_.param<bool>("Automatic", Automatic_, false);
   nh_private_.param<int>("posehistory_window", posehistory_window_, 200);
 
@@ -92,6 +99,7 @@ geometricCtrl::geometricCtrl(const ros::NodeHandle &nh, const ros::NodeHandle &n
   mavPos_ << 0.0, 0.0, 0.0;
   mavYaw_ = 0.0 ;
   mavVel_ << 0.0, 0.0, 0.0;
+  gravity_force << 0.0, 0.0, -9.8;
   Kpos_ << -Kpos_x_, -Kpos_y_, -Kpos_z_;
   Kvel_ << -Kvel_x_, -Kvel_y_, -Kvel_z_;
   Kint_ << -Kint_x_, -Kint_y_, -Kint_z_;
@@ -116,7 +124,7 @@ void geometricCtrl::gpsrawCallback(const sensor_msgs::NavSatFix &msg){
      string zone;
     LatLonToUTMXY(gps_home(0),gps_home(1),48,UTM_HOME_X,UTM_HOME_Y);//32 zurich 48 VietNam
   }
- gpsraw(0) = msg.latitude;
+ gpsraw(0) = msg.latitude; 
  gpsraw(1) = msg.longitude;
  gpsraw(2) = msg.altitude ;
  LatLonToUTMXY(gpsraw(0),gpsraw(1),32,UTM_X,UTM_Y); //32 zurich 48 VietNam
@@ -154,7 +162,6 @@ void geometricCtrl::quad_msgsCallback(const controller_msgs::PositionCommand &ms
   targetAcc_ = toEigen(msg.acceleration);
   mavYaw_ = double(msg.yaw);
   mavVelYaw_ = double(msg.yaw_dot);
-  targetStarted = true;
 }
 
 void geometricCtrl::flattargetCallback(const controller_msgs::FlatTarget &msg) {
@@ -168,26 +175,22 @@ void geometricCtrl::flattargetCallback(const controller_msgs::FlatTarget &msg) {
     targetAcc_ = Eigen::Vector3d::Zero();
     targetJerk_ = Eigen::Vector3d::Zero();
     targetSnap_ = Eigen::Vector3d::Zero();
-    targetStarted = true;
-
+    
   } else if (control_mask == ACCELERATION_FEEDBFORWARD) {
     targetAcc_ = toEigen(msg.acceleration);
     targetJerk_ = Eigen::Vector3d::Zero();
     targetSnap_ = Eigen::Vector3d::Zero();
-    targetStarted = true;
-
+  
   }else if (control_mask == VELOCITY_CONTROL) {
     targetPos_ = Eigen::Vector3d::Zero();
     targetAcc_ = toEigen(msg.acceleration);
     targetJerk_ = Eigen::Vector3d::Zero();
     targetSnap_ = Eigen::Vector3d::Zero();
-    targetStarted = true;
   }
 }
 
 void geometricCtrl::yawtargetCallback(const std_msgs::Float32 &msg) {
   mavYaw_ = double(msg.data);
-  targetStarted = true;
 }
 
 
@@ -201,7 +204,6 @@ void geometricCtrl::multiDOFJointCallback(const trajectory_msgs::MultiDOFJointTr
   targetAcc_ << pt.accelerations[0].linear.x, pt.accelerations[0].linear.y, pt.accelerations[0].linear.z;
   targetJerk_ = Eigen::Vector3d::Zero();
   targetSnap_ = Eigen::Vector3d::Zero();
-  targetStarted = true;
 }
 
 void geometricCtrl::mavposeCallback(const geometry_msgs::PoseStamped &msg) {
@@ -227,6 +229,7 @@ bool geometricCtrl::setModeCallback( geometric_controller::setmodeRequest &req ,
     case req.TAKE_OFF_AND_HOLD :{
       if(node_state == ONGROUND && req.sub < 5.1 && mav_status == MAV_STATE_STANDBY)
         {
+         desired_acc = Eigen::Vector3d::Zero();
          TakeOffTargetPos_ << mavPos_(0) , mavPos_(1) , req.sub;
          TakeOffYaw_ = ToEulerYaw(mavAtt_);
          ROS_INFO_STREAM("TakeOffAndHold at : " << mavPos_(0) << ", " << mavPos_(1) <<", " << req.sub << " yaw " << TakeOffYaw_ << " accepted");
@@ -241,6 +244,7 @@ bool geometricCtrl::setModeCallback( geometric_controller::setmodeRequest &req ,
     case req.HOLD :{
       if(node_state != ONGROUND)
         {
+         desired_acc = Eigen::Vector3d::Zero();
          HoldTargetPos_ << mavPos_(0) , mavPos_(1) , mavPos_(2);
          HoldYaw_ = ToEulerYaw(mavAtt_);
          ROS_INFO_STREAM("Hold at : " << mavPos_(0) << ", " << mavPos_(1) <<", " << mavPos_(2) <<  " yaw " << HoldYaw_ << " accepted");
@@ -265,6 +269,7 @@ bool geometricCtrl::setModeCallback( geometric_controller::setmodeRequest &req ,
     case req.AUTO_LAND :{
        if(node_state != ONGROUND)
         {
+         desired_acc = Eigen::Vector3d::Zero();
          ROS_INFO_STREAM("Start  landing at : " << mavPos_(0) << ", " << mavPos_(1) <<", " << mavPos_(2) << " accepted");
          node_state = AUTO_LAND;
          res.success = true;
@@ -346,7 +351,6 @@ void geometricCtrl::cmdloopCallback(const ros::TimerEvent &event) {
           break;
         }
       }
-      rvisualize();
       updates((ros::Time::now()-Flight_start).toSec(),mavPos_(0),mavPos_(1),mavPos_(2),0,desired_acc(0),desired_acc(1),desired_acc(2),integral_error(0),integral_error(1),integral_error(2),Imu_accel(0),Imu_accel(1),Imu_accel(2),mavVel_(0),mavVel_(1),mavVel_(2), 0,0,0);
       break;
     }
@@ -365,6 +369,7 @@ void geometricCtrl::cmdloopCallback(const ros::TimerEvent &event) {
       node_state = ONGROUND;
     }
   }
+  rvisualize();
   pubDebugInfo(desired_acc,targetPos_,targetVel_,int(node_state));
 }
 
@@ -418,6 +423,51 @@ void geometricCtrl::pubSystemStatus() {
   systemstatusPub_.publish(msg);
 }
 
+Eigen::Vector3d geometricCtrl::computeRobustBodyXAxis(
+    const Eigen::Vector3d& x_B_prototype, const Eigen::Vector3d& x_C,
+    const Eigen::Vector3d& y_C,
+    const Eigen::Quaterniond& attitude_estimate){
+  Eigen::Vector3d x_B = x_B_prototype;
+  if (x_B.norm()<0.01) {
+    // if cross(y_C, z_B) == 0, they are collinear =>
+    // every x_B lies automatically in the x_C - z_C plane
+
+    // Project estimated body x-axis into the x_C - z_C plane
+    const Eigen::Vector3d x_B_estimated =
+        attitude_estimate * Eigen::Vector3d::UnitX();
+    const Eigen::Vector3d x_B_projected =
+        x_B_estimated - (x_B_estimated.dot(y_C)) * y_C;
+    if (x_B_projected.norm()<0.01) {
+      x_B = x_C;
+    } else {
+      x_B = x_B_projected.normalized();
+    }
+  } else {
+    x_B.normalize();
+  }
+  return x_B;
+}
+
+Eigen::Quaterniond geometricCtrl::computeDesiredQuat(const Eigen::Vector3d &a_des) {
+  // Reference attitude
+  Eigen::Quaterniond q_heading = Eigen::Quaterniond(
+      Eigen::AngleAxisd(mavYaw_, Eigen::Vector3d::UnitZ()));
+  Eigen::Vector3d x_C = q_heading * Eigen::Vector3d::UnitX();
+  Eigen::Vector3d y_C = q_heading * Eigen::Vector3d::UnitY();
+  Eigen::Vector3d z_B;
+  if(a_des.norm()<0.01){
+    z_B = mavAtt_ * Eigen::Vector3d::UnitZ();
+  }
+  else z_B = a_des.normalized();
+  const Eigen::Vector3d x_B_prototype = y_C.cross(z_B);
+  const Eigen::Vector3d x_B =
+      computeRobustBodyXAxis(x_B_prototype, x_C, y_C, mavAtt_);
+  const Eigen::Vector3d y_B = (z_B.cross(x_B)).normalized();
+  const Eigen::Matrix3d R_W_B((Eigen::Matrix3d() << x_B, y_B, z_B).finished());
+  Eigen::Quaterniond desired_attitude(R_W_B);
+  return desired_attitude;
+}
+
 Eigen::Vector3d geometricCtrl::controlPosition(const Eigen::Vector3d &target_pos, const Eigen::Vector3d &target_vel,
                                                const Eigen::Vector3d &target_acc) {
   /// Compute BodyRate commands using differential flatness
@@ -427,19 +477,36 @@ Eigen::Vector3d geometricCtrl::controlPosition(const Eigen::Vector3d &target_pos
   const Eigen::Vector3d vel_error = mavVel_ - target_vel ;
   // Position Controller
   const Eigen::Vector3d a_fb = poscontroller(pos_error, vel_error,control_mask);
+  // Desired orientation
+  q_des = computeDesiredQuat(a_fb - gravity_force + drag_acc );//  
   // Rotor Drag compensation
-  const Eigen::Vector3d a_rd = Eigen::Vector3d::Zero();
+  const Eigen::Vector3d a_dc =  computeDragAcc(target_vel,q_des,drag_acc);
   // Reference acceleration
-  Eigen::Vector3d a_des = a_fb + a_ref - a_rd ;
-  // Eigen::Vector3d zb = mavAtt_ * Eigen::Vector3d::UnitZ();
+  Eigen::Vector3d a_des = a_fb + a_ref ; //+ a_dc ;
+  geometry_msgs::Point drag = toGeometry_msgs(a_fb);
+  debugDragPub_.publish(drag);
   return a_des;
+}
+Eigen::Vector3d geometricCtrl::computeDragAcc(const Eigen::Vector3d& v_des , const Eigen::Quaterniond& q_des ,Eigen::Vector3d& drag_acc){
+  
+  Eigen::Vector3d drag_B =   (q_des.inverse() * v_des).cwiseProduct(D_);
+  Eigen::Vector3d drag_W = q_des * drag_B;
+  // Eigen::Vector3d drag_B = (q_des.inverse()*drag_acc);
+  // ROS_INFO_STREAM("Drag"<<drag_B(0)<<" "<<drag_B(1)<<" "<<drag_B(2));
+  // Eigen::Vector3d drag_B_norm = (q_des.inverse() * v_des);
+  // ROS_INFO_STREAM("Vel"<<drag_B_norm(0)<<" "<<drag_B_norm(1)<<" "<<drag_B_norm(2));
+  // D_ = drag_B.cwiseProduct(drag_B_norm.cwiseInverse());
+  // ROS_INFO_STREAM(D_(0)<<" "<<D_(1)<<" " <<D_(2));
+ 
+  drag_acc = drag_W;
+  return drag_W;
 }
 double geometricCtrl::controlyawvel(){
   double yawvel = mavYaw_ - ToEulerYaw(mavAtt_);
       if (fabs(yawvel)> fabs(yawvel-2*MathPI)) yawvel = (yawvel-2*MathPI)*0.5;
       else if (fabs(yawvel)> fabs(yawvel+2*MathPI)) yawvel = (yawvel+2*MathPI)*0.5;
       else yawvel = 0.5 * yawvel;
-   return yawvel + 0.5 * mavVelYaw_;
+   return yawvel + mavVelYaw_;
 }
 double geometricCtrl::ToEulerYaw(const Eigen::Quaterniond& q){
     Vector3f angles;    //yaw pitch roll
@@ -473,24 +540,34 @@ bool geometricCtrl::almostZero(double value) {
 }
 
 void geometricCtrl::rvisualize(){
-visualization_msgs::Marker marker;
-marker.header.frame_id = "map";
-marker.header.stamp = ros::Time();
-marker.ns = "drone";
-marker.id = 0;
-marker.type = visualization_msgs::Marker::MESH_RESOURCE;
-marker.mesh_resource = "package://geometric_controller/mesh/quadrotor_2.stl";
-marker.action = visualization_msgs::Marker::ADD;
-marker.pose.position = toGeometry_msgs(mavPos_);
-marker.pose.orientation = toGeometry_msgs(mavAtt_);
-marker.scale.x = 1.5;
-marker.scale.y = 1.5;
-marker.scale.z = 3.0;
-marker.color.a = 1.0; // Don't forget to set the alpha!
-marker.color.r = 0.01;
-marker.color.g = 0.01;
-marker.color.b = 0.01;
-rvizPosePub_.publish( marker);
+  visualization_msgs::Marker drone = drone_marker();
+  drone.pose.position = toGeometry_msgs(mavPos_);
+  drone.pose.orientation = toGeometry_msgs(mavAtt_);
+  rvizPosePub_.publish(drone);
+
+  visualization_msgs::Marker arrow = arrow_marker();
+  arrow.points.push_back(toGeometry_msgs(mavPos_));
+  arrow.points.push_back(toGeometry_msgs(desired_acc - gravity_force + mavPos_));
+  rvizAcelDesPub_.publish(arrow);
+
+  arrow.color.g = 1;
+  arrow.points.pop_back();
+  arrow.points.push_back(toGeometry_msgs(Imu_accel + mavPos_));//gravity_force
+  rvizAcelPub_.publish(arrow);
+
+  arrow.color.r = 1;
+  arrow.color.g = 0;
+  arrow.color.b = 0;
+  arrow.points.pop_back();
+  arrow.points.push_back(toGeometry_msgs(q_des * Eigen::Vector3d::UnitX() + mavPos_));//gravity_force
+  rviz1Pub_.publish(arrow);
+
+  arrow.color.r = 0;
+  arrow.color.g = 0;
+  arrow.color.b = 1;
+  arrow.points.pop_back();
+  arrow.points.push_back(toGeometry_msgs(q_des * Eigen::Vector3d::UnitZ() + mavPos_));//gravity_force
+  rviz2Pub_.publish(arrow);
 }
 void geometricCtrl::dynamicReconfigureCallback(geometric_controller::GeometricControllerConfig &config,
                                                uint32_t level) {

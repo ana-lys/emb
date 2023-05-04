@@ -85,7 +85,7 @@ class geometricCtrl {
   ros::Subscriber imuSub_;
   ros::Subscriber yawreferenceSub_,yawObstacleSub_;
   ros::Publisher setpoint_raw_Pub, debugGpsLocalPub_ , debugAccelPub_, debugVelPub_ , debugPosePub_ , debugStatePub_;
-  ros::Publisher rvizPosePub_,rvizPathPub_;
+  ros::Publisher rviz1Pub_,rviz2Pub_,rvizPosePub_,rvizPathPub_,rvizAcelDesPub_,rvizAcelPub_,rvizQuatDesPub_,rvizQuatPub_,debugDragPub_;
   ros::Publisher systemstatusPub_;
 
   ros::ServiceClient arming_client_,land_client_;
@@ -99,7 +99,7 @@ class geometricCtrl {
   bool fail_detec_;
   bool take_off_request_,hold_request_;
   int ctrl_mode_;
-  bool landing_detected = false, targetStarted =false ;
+  bool landing_detected = false;
   bool sim_enable_, rcHold , Automatic_ ;
   double reference_request_dt_;
   double UTM_X,UTM_Y,UTM_HOME_X,UTM_HOME_Y;
@@ -126,10 +126,11 @@ class geometricCtrl {
   Eigen::Vector3d globalPos_,gpsraw,gps_pos;
   Eigen::Vector3d Imu_base;
   Eigen::Vector3d Imu_accel;
-  Eigen::Vector3d desired_acc;
+  Eigen::Vector3d desired_acc,drag_acc,gravity_force;
   Eigen::Vector3d Imu_ang_vel;
   Eigen::Vector3d integral_error,last_integral_error;
   Eigen::Vector4d globalAtt_;
+  Eigen::Quaterniond q_des;
 
   float battery_voltage;
   double Kpos_x_, Kpos_y_, Kpos_z_, Kvel_x_, Kvel_y_, Kvel_z_, Kint_x_ ,Kint_y_ ,Kint_z_;
@@ -179,7 +180,8 @@ class geometricCtrl {
   Eigen::Vector3d computeRobustBodyXAxis(const Eigen::Vector3d& x_B_prototype, const Eigen::Vector3d& x_C,
   const Eigen::Vector3d& y_C,
   const Eigen::Quaterniond& attitude_estimate);
-
+  Eigen::Quaterniond computeDesiredQuat(const Eigen::Vector3d &a_des);
+  Eigen::Vector3d computeDragAcc(const Eigen::Vector3d& v_des , const Eigen::Quaterniond& q_des ,Eigen::Vector3d& drag_acc);
   enum FlightState { WAITING_FOR_HOME_POSE,
                      TAKE_OFF_AND_HOLD,
                      HOLD,

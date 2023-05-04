@@ -15,6 +15,9 @@
           <param name="Kv_x" value="2.0"/>
           <param name="Kv_y" value="2.0"/>
           <param name="Kv_z" value="2.0"/>
+          <param name="D_x" value="0.8"/>
+          <param name="D_y" value="0.8"/>
+          <param name="D_z" value="0.0"/>
   </node>
 
 </launch>

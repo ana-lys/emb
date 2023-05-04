@@ -18,6 +18,7 @@ find_package(catkin REQUIRED COMPONENTS
   message_filters
   cv_bridge
   message_generation
+  mav_trajectory_generation
 )
 
 generate_dynamic_reconfigure_options(
