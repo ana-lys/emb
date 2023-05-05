@@ -1,7 +1,6 @@
 #include "ros/ros.h"
 #include <cstdlib>
 #include "geometric_controller/geometric_controller.h"
-#include "geometric_controller/trajectory_helper.h"
 #include <nav_msgs/Odometry.h>
 #include <mavros_msgs/SetMode.h>
 #include <mavros_msgs/State.h>
@@ -104,8 +103,8 @@ void gpsrawCallback(const sensor_msgs::NavSatFix &msg){
 }
 
 int main(int argc, char **argv) {
-  // for(int i = 1; i < argc ; i++){ 
-    switch(argv[1][0]){
+  for(int i = 1; i < argc ; i++){ 
+    switch(argv[i][0]){
       case 'A': {
         gps_target.push_back(Eigen::Vector3d(latA,longA,5.0));
         break;
@@ -135,7 +134,7 @@ int main(int argc, char **argv) {
         ROS_ERROR("Invalid command");
         return 0;
       }
-    // }
+    }
 
   }
  
@@ -164,48 +163,7 @@ int main(int argc, char **argv) {
       setmode_init = true;
     }
     if(!plan_init && gps_home_init && setmode_init){
-        PlannerHelper plan(mav_pos,mav_vel,mav_yaw,mav_yawvel);
-        plan.setConstraints(maxv,maxa,maxav,maxaa);
-        std::vector<Eigen::VectorXd> pose, twist;
-        Eigen::VectorXd temp,tempv;
-        temp.resize(3);
-        tempv.resize(3);
-        for (auto sp : local_setpoint){
-          temp << sp;
-          tempv << Eigen::Vector3d::Zero();
-          pose.push_back(temp);
-          twist.push_back(tempv);
-        }
-        mav_trajectory_generation::Trajectory trajectory;
-          plan.planMultiTrajectory(pose, twist, &trajectory);
-          double t_start = trajectory.getMinTime();
-          double t_end = trajectory.getMaxTime();
-          ROS_INFO_STREAM("TIME: " << t_start <<" " << t_end);
-          double dt = 0.01;
-          trajectory.evaluateRange(t_start, t_end, dt, 0, &Rp, &sampling_times);
-          trajectory.evaluateRange(t_start, t_end, dt, 1, &Rv, &sampling_times);
-          trajectory.evaluateRange(t_start, t_end, dt, 2, &Ra, &sampling_times);
-          plan_init = true;}
-      if(plan_init && !plan_fin){
-        
-        controller_msgs::PositionCommand msg;
-        msg.position = toGeometry_msgs(Rp[sample_idx].head(3));
-        msg.velocity = toVector3(Rv[sample_idx].head(3));
-        msg.acceleration = toVector3(Ra[sample_idx].head(3));
-        msg.yaw = 0.0;
-        msg.yaw_dot = 0.0;
-        msg.trajectory_flag = msg.TRAJECTORY_STATUS_READY;
-        pos_cmd.publish(msg);
-        sample_idx++;
-        if(sample_idx==sampling_times.size())
-        plan_fin = true;
-      }
-      if(plan_fin){
-        setModeCall.request.mode = setModeCall.request.HOLD;
-        setModeCall.request.timeout = 50;
-        setModeClient.call(setModeCall);
-        if(setModeCall.response.success);
-        ros::shutdown();
+       
       }
     ros::spinOnce();
   }

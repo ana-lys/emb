@@ -12,13 +12,9 @@ find_package(catkin REQUIRED COMPONENTS
   mavros_extras
   mavros_msgs
   mavlink
-  image_geometry
   controller_msgs
-  image_transport
   message_filters
-  cv_bridge
   message_generation
-  mav_trajectory_generation
 )
 
 generate_dynamic_reconfigure_options(
@@ -38,7 +34,7 @@ generate_messages(
 catkin_package(
   INCLUDE_DIRS include
   LIBRARIES geometric_controller
-  CATKIN_DEPENDS roscpp rospy std_msgs mavros_msgs geometry_msgs sensor_msgs tf image_geometry image_transport message_filters cv_bridge controller_msgs
+  CATKIN_DEPENDS roscpp rospy std_msgs mavros_msgs geometry_msgs sensor_msgs tf  message_filters controller_msgs
 )
 
 #############
