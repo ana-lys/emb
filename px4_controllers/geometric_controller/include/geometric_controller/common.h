@@ -226,6 +226,10 @@ return std::max(v , nml);
 void integral_handle(Eigen::Vector3d &integral, Eigen::Vector3d error, double dt, Eigen::Vector3d ki_coeff ,double rescale){
 if(dt > 0.05) dt =0;
 Eigen::Vector3d integral_update = dt * ki_coeff.cwiseProduct(error);
+for(auto i = 0; i < 3 ;i++){
+  if((integral_update(i)*integral(i))<0)
+  integral(i)*=0.95;
+}
 integral += integral_update;
 integral = reScaleMax( integral, rescale);
 }

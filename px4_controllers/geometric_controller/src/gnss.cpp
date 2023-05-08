@@ -1,6 +1,7 @@
 #include "ros/ros.h"
 #include <cstdlib>
 #include "geometric_controller/geometric_controller.h"
+#include "geometric_controller/triangle_form.h"
 #include <nav_msgs/Odometry.h>
 #include <mavros_msgs/SetMode.h>
 #include <mavros_msgs/State.h>
@@ -25,11 +26,17 @@
 #define latD 21.0066968
 #define longD 105.8432903
 
-#define latE 21.0066886
-#define longE 105.8432813
+#define latE 21.0066968
+#define longE 105.8431183
+
+#define latF 21.0066886
+#define longF 105.8429563
 
 double maxj = 5.0 , maxa = 4.0 , maxv = 2.5 , maxav = 1.2 , maxaa = 2.0;
-int sample_idx=0;
+int sample_idx=0,waypoint_idx=0;
+int sample_size=0;
+TriangleForm plan;
+std::vector<int> Indexwp;
 bool gps_home_init = false, odom_init = false , setmode_init =false ,plan_init = false ,plan_fin =false;
 Eigen::Quaterniond mav_att ;
 double mav_yaw = 0,mav_yawvel = 0;
@@ -49,18 +56,6 @@ double ToEulerYaw(const Eigen::Quaterniond& q){
     double yaw = std::atan2(siny_cosp, cosy_cosp);
     return yaw;
   }
-
-void FastYaw(const double& start, double& end){
-  double yawdiff = end - start;
-  while(fabs(yawdiff)> fabs(yawdiff-2*MathPI)){
-    end -= 2*MathPI;
-    yawdiff = end - start;
-  }
-  while(fabs(yawdiff)> fabs(yawdiff+2*MathPI)){
-    end += 2*MathPI;
-    yawdiff = end - start;
-  }
-}
 
 void odomCallback(const nav_msgs::Odometry &odomMsg){
   mav_att.w()=odomMsg.pose.pose.orientation.w;
@@ -97,8 +92,7 @@ void gpsrawCallback(const sensor_msgs::NavSatFix &msg){
  gps_home_init = true; 
  for(auto lsp: local_setpoint){
   ROS_INFO_STREAM("local_setpoint" << lsp(0) << " " << lsp(1));
- }
- 
+  }
  }
 }
 
@@ -111,7 +105,7 @@ int main(int argc, char **argv) {
       }
 
       case 'B': {
-        gps_target.push_back(Eigen::Vector3d(latB,longB,5.0));
+        gps_target.push_back(Eigen::Vector3d(latB,longB,7.0));
         break;
       }
 
@@ -121,12 +115,17 @@ int main(int argc, char **argv) {
       }
 
       case 'D': {
-        gps_target.push_back(Eigen::Vector3d(latD,longD,5.0));
+        gps_target.push_back(Eigen::Vector3d(latD,longD,7.0));
         break;
       }
 
       case 'E': {
         gps_target.push_back(Eigen::Vector3d(latE,longE,5.0));
+        break;
+      }
+
+      case 'F': {
+        gps_target.push_back(Eigen::Vector3d(latF,longF,7.0));
         break;
       }
 
@@ -148,11 +147,11 @@ int main(int argc, char **argv) {
                                ros::TransportHints().tcpNoDelay());
   ros::Subscriber gpsSub_ = n.subscribe("/mavros/global_position/global", 1, &gpsrawCallback, ros::TransportHints().tcpNoDelay());
   ros::Publisher pos_cmd = n.advertise<controller_msgs::PositionCommand>("/controller/pos_cmd",1);
+  ros::Publisher acc_cmd = n.advertise<geometry_msgs::Point>("/controller/acc_cmd",1);
   ros::ServiceClient setModeClient = n.serviceClient<geometric_controller::setmode>("/controller/set_mode");
   geometric_controller::setmode setModeCall;
+
   
-  std::vector<Eigen::VectorXd> Rp,Rv,Ra;
-  std::vector<double> sampling_times;
   while(ros::ok()){
     loop_rate.sleep();
     if(!setmode_init && gps_home_init){
@@ -162,9 +161,42 @@ int main(int argc, char **argv) {
       if(setModeCall.response.success)
       setmode_init = true;
     }
-    if(!plan_init && gps_home_init && setmode_init){
-       
+    if(!plan_init && setmode_init){
+       plan.setStart(mav_pos,mav_yaw);
+       for(auto lsp : local_setpoint)
+       plan.appendSetpoint(lsp);
+       plan.execute();
+       plan.getWpIndex(Indexwp);
+       sample_size = plan.getSize();
+       plan_init = true;
+    }
+    if(plan_init){
+      sample_idx ++;
+      if(sample_idx < sample_size)
+      { 
+        if(sample_idx > Indexwp[waypoint_idx]) waypoint_idx++;
+        controller_msgs::PositionCommand cmd;
+        cmd.position = toGeometry_msgs(plan.getPos(sample_idx));
+        cmd.velocity = toVector3(plan.getVel(sample_idx));
+        cmd.acceleration = toVector3(plan.getAcc(sample_idx));
+        cmd.yaw = plan.getYaw(sample_idx);
+        cmd.yaw_dot = plan.getYawVel(sample_idx);
+        pos_cmd.publish(cmd);
+        geometry_msgs::Point acc_msg;
+        acc_msg = toGeometry_msgs(plan.getAcc(sample_idx));
+        acc_cmd.publish(acc_msg);
+        ROS_INFO_STREAM("Sec2 next waypoint " << (Indexwp[waypoint_idx] - sample_idx)*0.01 
+        << " Sec to end " << (sample_size - sample_idx) *0.01);
       }
+      else{
+        setModeCall.request.mode = setModeCall.request.HOLD;
+        setModeCall.request.timeout = 50;
+        setModeClient.call(setModeCall);
+        if(setModeCall.response.success)
+        ros::shutdown();
+        return 0;
+      }
+    }
     ros::spinOnce();
   }
    

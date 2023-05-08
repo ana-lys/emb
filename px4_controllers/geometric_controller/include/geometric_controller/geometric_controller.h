@@ -122,7 +122,7 @@ class geometricCtrl {
   double yaw_velocity;
   double mavYaw_,mavVelYaw_;
   Eigen::Quaterniond mavAtt_;
-  Eigen::Vector3d Kpos_, Kvel_, D_, Kint_;
+  Eigen::Vector3d Kpos_, Kacc_ ,Kvel_, D_, Kint_;
   Eigen::Vector3d globalPos_,gpsraw,gps_pos;
   Eigen::Vector3d Imu_base;
   Eigen::Vector3d Imu_accel;
@@ -133,7 +133,7 @@ class geometricCtrl {
   Eigen::Quaterniond q_des;
 
   float battery_voltage;
-  double Kpos_x_, Kpos_y_, Kpos_z_, Kvel_x_, Kvel_y_, Kvel_z_, Kint_x_ ,Kint_y_ ,Kint_z_;
+  double Kpos_x_, Kpos_y_, Kpos_z_, Kvel_x_, Kvel_y_, Kvel_z_, Kint_x_ ,Kint_y_ ,Kint_z_ , Kacc_x_,  Kacc_y_ ,  Kacc_z_;
   int posehistory_window_;
   void imuCallback(const sensor_msgs::Imu &msg);
   void imuloadCallback(const sensor_msgs::Imu &msg);

@@ -85,6 +85,9 @@ geometricCtrl::geometricCtrl(const ros::NodeHandle &nh, const ros::NodeHandle &n
   nh_private_.param<double>("Kv_x", Kvel_x_, 1.5);
   nh_private_.param<double>("Kv_y", Kvel_y_, 1.5);
   nh_private_.param<double>("Kv_z", Kvel_z_, 1.5);
+  nh_private_.param<double>("Ka_x", Kacc_x_, 0.2);
+  nh_private_.param<double>("Ka_y", Kacc_y_, 0.2);
+  nh_private_.param<double>("Ka_z", Kacc_z_, 0.2);
   nh_private_.param<double>("Ki_x", Kint_x_, 0.1);
   nh_private_.param<double>("Ki_y", Kint_y_, 0.1);
   nh_private_.param<double>("Ki_z", Kint_z_, 0.1);
@@ -102,6 +105,7 @@ geometricCtrl::geometricCtrl(const ros::NodeHandle &nh, const ros::NodeHandle &n
   gravity_force << 0.0, 0.0, -9.8;
   Kpos_ << -Kpos_x_, -Kpos_y_, -Kpos_z_;
   Kvel_ << -Kvel_x_, -Kvel_y_, -Kvel_z_;
+  Kacc_ <<  Kacc_x_,  Kacc_y_ ,  Kacc_z_;
   Kint_ << -Kint_x_, -Kint_y_, -Kint_z_;
   rcHold = false;
   D_ << dx_, dy_, dz_;
@@ -370,7 +374,7 @@ void geometricCtrl::cmdloopCallback(const ros::TimerEvent &event) {
     }
   }
   rvisualize();
-  pubDebugInfo(desired_acc,targetPos_,targetVel_,int(node_state));
+  pubDebugInfo(desired_acc,Kpos_.asDiagonal()*(mavPos_-targetPos_),Kvel_.asDiagonal()*(mavVel_-targetVel_),int(node_state));
 }
 
 void geometricCtrl::mavstateCallback(const mavros_msgs::State::ConstPtr &msg) { 
@@ -482,7 +486,8 @@ Eigen::Vector3d geometricCtrl::controlPosition(const Eigen::Vector3d &target_pos
   // Rotor Drag compensation
   const Eigen::Vector3d a_dc =  computeDragAcc(target_vel,q_des,drag_acc);
   // Reference acceleration
-  Eigen::Vector3d a_des = a_fb + a_ref ; //+ a_dc ;
+  Eigen::Vector3d a_des = a_fb + a_ref.cwiseProduct(Kacc_) ; //+ a_dc ;
+  // ROS_INFO_STREAM("ades"<<a_des(0)<<" "<<a_des(1)<<" "<<a_des(2));
   geometry_msgs::Point drag = toGeometry_msgs(a_fb);
   debugDragPub_.publish(drag);
   return a_des;
@@ -497,16 +502,19 @@ Eigen::Vector3d geometricCtrl::computeDragAcc(const Eigen::Vector3d& v_des , con
   // ROS_INFO_STREAM("Vel"<<drag_B_norm(0)<<" "<<drag_B_norm(1)<<" "<<drag_B_norm(2));
   // D_ = drag_B.cwiseProduct(drag_B_norm.cwiseInverse());
   // ROS_INFO_STREAM(D_(0)<<" "<<D_(1)<<" " <<D_(2));
- 
   drag_acc = drag_W;
   return drag_W;
 }
 double geometricCtrl::controlyawvel(){
-  double yawvel = mavYaw_ - ToEulerYaw(mavAtt_);
-      if (fabs(yawvel)> fabs(yawvel-2*MathPI)) yawvel = (yawvel-2*MathPI)*0.5;
-      else if (fabs(yawvel)> fabs(yawvel+2*MathPI)) yawvel = (yawvel+2*MathPI)*0.5;
-      else yawvel = 0.5 * yawvel;
-   return yawvel + mavVelYaw_;
+  double yaw_err = mavYaw_ - ToEulerYaw(mavAtt_);
+      
+      while (fabs(yaw_err)> fabs(yaw_err-2*MathPI)){
+       yaw_err = (yaw_err-2*MathPI);
+      }
+      while (fabs(yaw_err)> fabs(yaw_err+2*MathPI)){
+       yaw_err = (yaw_err+2*MathPI);
+      }
+   return yaw_err * 0.6 + mavVelYaw_ * 0.4;
 }
 double geometricCtrl::ToEulerYaw(const Eigen::Quaterniond& q){
     Vector3f angles;    //yaw pitch roll
@@ -527,7 +535,8 @@ Eigen::Vector3d geometricCtrl::poscontroller(const Eigen::Vector3d &pos_error, c
   last_integral_error = integral_error;
   if(current_state_.mode == "OFFBOARD" && current_state_.armed)
   integral_handle(integral_error,a_fb,-0.01,Kint_,1.5);
-  a_fb += integral_error;   
+  // ROS_INFO_STREAM("integral_error"<<integral_error(0)<<" "<<integral_error(1)<<" "<<integral_error(2));
+  // a_fb += integral_error;   
   if (a_fb.norm() > max_fb_acc_)
     a_fb = (max_fb_acc_ / a_fb.norm()) * a_fb;  // Clip acceleration if reference is too large
   

@@ -71,6 +71,25 @@
         "thread": "cpp",
         "typeindex": "cpp",
         "typeinfo": "cpp",
-        "iomanip": "cpp"
+        "iomanip": "cpp",
+        "dense": "cpp",
+        "concepts": "cpp",
+        "condition_variable": "cpp",
+        "numeric": "cpp",
+        "system_error": "cpp",
+        "mutex": "cpp",
+        "strstream": "cpp",
+        "bitset": "cpp",
+        "clocale": "cpp",
+        "ctime": "cpp",
+        "cwctype": "cpp",
+        "fstream": "cpp",
+        "ratio": "cpp",
+        "variant": "cpp",
+        "*.ipp": "cpp",
+        "hash_map": "cpp",
+        "hash_set": "cpp",
+        "ranges": "cpp",
+        "valarray": "cpp"
     }
 }
