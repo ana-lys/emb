@@ -230,23 +230,29 @@ void geometricCtrl::mavtwistCallback(const geometry_msgs::TwistStamped &msg) {
 }
 bool geometricCtrl::getModeCallback( geometric_controller::getmodeRequest &req , geometric_controller::getmodeResponse &res){
    switch (node_state) {
+    case WAITING_FOR_HOME_POSE : {
+      res.result = req.WAITING_FOR_HOME_POSE;
+      break;
+    }
     case TAKE_OFF : {
       res.result = req.TAKE_OFF;
+      break;
     }
     case HOLD : {
       res.result = req.HOLD;
+      break;
     }
     case MISSION_EXECUTION : {
       res.result = req.MISSION_EXECUTION;
+      break;
     }
     case AUTO_LAND : {
       res.result = req.AUTO_LAND;
+      break;
     }
     case ONGROUND : {
       res.result = req.ONGROUND;
-    }
-    default : {
-      return false;
+      break;
     }
    }
    return true;
