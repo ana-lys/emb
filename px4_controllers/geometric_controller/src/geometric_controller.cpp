@@ -289,7 +289,7 @@ bool geometricCtrl::setModeCallback( geometric_controller::setmodeRequest &req ,
     break;
     }
     case req.MISSION_EXECUTION :{
-      if(node_state != ONGROUND && node_state !=AUTO_LAND)
+      if(node_state == HOLD)
         {
          targetPos_ << mavPos_(0) , mavPos_(1) , mavPos_(2);
          ROS_INFO_STREAM("Execute start at : " << mavPos_(0) << ", " << mavPos_(1) <<", " << mavPos_(2) << " accepted");
