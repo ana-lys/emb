@@ -118,7 +118,7 @@ int main(int argc, char **argv) {
       }
 
       case 'B': {
-        gps_target.push_back(Eigen::Vector3d(latB,longB,7.0));
+        gps_target.push_back(Eigen::Vector3d(latB,longB,5.0));
         break;
       }
 
@@ -133,7 +133,7 @@ int main(int argc, char **argv) {
       }
 
       case 'E': {
-        gps_target.push_back(Eigen::Vector3d(latE,longE,5.0));
+        gps_target.push_back(Eigen::Vector3d(latE,longE,7.0));
         break;
       }
 
@@ -153,12 +153,12 @@ int main(int argc, char **argv) {
       }
 
       case 'I': {
-        gps_target.push_back(Eigen::Vector3d(latI,longI,7.0));
+        gps_target.push_back(Eigen::Vector3d(latI,longI,5.0));
         break;
       }
 
       case 'J': {
-        gps_target.push_back(Eigen::Vector3d(latJ,longJ,7.0));
+        gps_target.push_back(Eigen::Vector3d(latJ,longJ,5.0));
         break;
       }
 
@@ -176,7 +176,7 @@ int main(int argc, char **argv) {
   ros::init(argc_, argv_, "controller_gps");
   ros::NodeHandle n;
   ros::Rate loop_rate(100);
-  offset << 2.0,5.0,0.0;
+  offset << 0.0,0.0,0.0;
   ros::Subscriber odomSub_ = n.subscribe("mavros/local_position/odom", 1, &odomCallback,
                                ros::TransportHints().tcpNoDelay());
   ros::Subscriber gpsSub_ = n.subscribe("/mavros/global_position/global", 1, &gpsrawCallback, ros::TransportHints().tcpNoDelay());
@@ -214,7 +214,6 @@ int main(int argc, char **argv) {
         cmd.velocity = toVector3(plan.getVel(sample_idx));
         cmd.acceleration = toVector3(plan.getAcc(sample_idx));
         cmd.yaw = plan.getYaw(sample_idx);
-        cmd.yaw_dot = plan.getYawVel(sample_idx);
         pos_cmd.publish(cmd);
         geometry_msgs::Point acc_msg;
         acc_msg = toGeometry_msgs(plan.getAcc(sample_idx));
