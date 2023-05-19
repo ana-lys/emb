@@ -96,7 +96,7 @@ class geometricCtrl {
   
   ros::Timer cmdloop_timer_, statusloop_timer_ ;
   ros::Time Flight_start,last_request_;
-  string mav_name_,log_folder_;
+  string mav_name_;
   bool fail_detec_;
   bool take_off_request_,hold_request_;
   int ctrl_mode_;

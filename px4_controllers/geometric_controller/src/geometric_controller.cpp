@@ -72,7 +72,6 @@ geometricCtrl::geometricCtrl(const ros::NodeHandle &nh, const ros::NodeHandle &n
   rviz2Pub_= nh_.advertise<visualization_msgs::Marker>( "/debug/2", 0 );
   // Parameters loader                                
   nh_private_.param<string>("mavname", mav_name_, "iris");
-  nh_private_.param<string>("log_folder", log_folder_, "iris");
   nh_private_.param<int>("ctrl_mode", ctrl_mode_, 2);
   nh_private_.param<double>("max_acc", max_fb_acc_, 2.0);
   nh_private_.param<double>("max_ft_vel", max_ft_vel_, 2.0);
@@ -111,7 +110,7 @@ geometricCtrl::geometricCtrl(const ros::NodeHandle &nh, const ros::NodeHandle &n
   rcHold = false;
   D_ << dx_, dy_, dz_;
   last_integral_error = Eigen::Vector3d::Zero();
-  creates(log_folder_);
+  creates();
   Flight_start = ros::Time::now();
 }
 geometricCtrl::~geometricCtrl() {

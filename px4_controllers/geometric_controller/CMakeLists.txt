@@ -15,6 +15,7 @@ find_package(catkin REQUIRED COMPONENTS
   controller_msgs
   message_filters
   message_generation
+  yaml_cpp_catkin
 )
 
 generate_dynamic_reconfigure_options(
@@ -35,7 +36,7 @@ generate_messages(
 catkin_package(
   INCLUDE_DIRS include
   LIBRARIES geometric_controller
-  CATKIN_DEPENDS roscpp rospy std_msgs mavros_msgs geometry_msgs sensor_msgs tf  message_filters controller_msgs
+  CATKIN_DEPENDS roscpp rospy std_msgs mavros_msgs geometry_msgs sensor_msgs tf  message_filters controller_msgs yaml_cpp_catkin
 )
 
 #############
@@ -73,9 +74,15 @@ add_executable(feature
   src/feature.cpp
 )
 
+add_executable(calib
+  src/calib.cpp
+)
+
 add_dependencies(geometric_controller_node geometric_controller ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 
 target_link_libraries(geometric_controller_node ${PROJECT_NAME} ${catkin_LIBRARIES})
+
+target_link_libraries(calib ${PROJECT_NAME} ${catkin_LIBRARIES})
 
 target_link_libraries(stat ${PROJECT_NAME} ${catkin_LIBRARIES})
 

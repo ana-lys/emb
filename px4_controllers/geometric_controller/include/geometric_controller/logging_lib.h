@@ -1,12 +1,13 @@
 #include <iostream>
 #include <fstream>
 #include <ros/ros.h>
+#include <ros/package.h>
 using namespace std;
 string name="";
-void creates(string &folder)
+void creates()
 {  
 	std::fstream file; 
-    name = folder+ "/rigid.csv";
+    name = ros::package::getPath("geometric_controller") + "/glog/rigid.csv";
 	file.open(name, std::ios::out | std::ios::app); 
 	file << "TimeStamp,a1,a2,a3,a4,a5,a6,a7,a8,a9,a10,a11,a12,a13,a14,a15,a16,a17,a18,Thrust\n";
     file.close(); 
