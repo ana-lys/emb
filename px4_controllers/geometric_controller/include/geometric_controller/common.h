@@ -168,54 +168,6 @@ double H2Vratio(Eigen::Vector3d v){
 double H2VCoeff(Eigen::Vector3d v){
   return (-0.5 / log(H2Vratio(v)+1.8) + 0.5);
 } 
-double findLastAverage(std::deque<double>& signal, int n)
-{ 
-  if (signal.size() < n) return 1000;
-  else{
-    double sum = 0;
-    for (int i = 0; i < n; i++)
-  {
-    sum+= signal.at(signal.size()-1-i);
-
-  }
-  return sum/n;
-  }
-}
-double findLastVariance(std::deque<double>& signal, int n , double mean )
-{ 
-  if (signal.size() < n) return 1000;
-  else{
-    double sum = 0;
-    for (int i = 0; i < n; i++)
-  {
-    sum+= (signal.at(signal.size()-1-i) - mean)* (signal.at(signal.size()-1-i) - mean);
-  }
-  return sqrt(sum/n);
-  }
-}
-int findPeak(std::deque<double>& signal)
-{ 
-  if (signal.size() < 21) return -2;
-  else{
-  bool min = true ,max =true ;
-
-  for (int i = 0; i < 21; i++)
-  {
-    if (signal[i] < signal[10])
-    {
-      min = false ;
-    }
-    if (signal[i] > signal[10])
-    {
-      max = false ;
-    }
-  }
-  signal.pop_front();
-  if(min == true) return -1 ;
-  else if(max == true) return 1 ;
-  else return 0 ;
-  }
-}
 
 Eigen::Vector3d reScaleMax(Eigen::Vector3d v, double nml){
 return v / std::max(v.norm()/nml,1.0);

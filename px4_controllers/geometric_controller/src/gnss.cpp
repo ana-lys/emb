@@ -14,6 +14,9 @@
 #include <geometry_msgs/Twist.h>
 #include <geometry_msgs/TwistStamped.h>
 
+#include <fstream>
+#include <yaml-cpp/yaml.h>
+
 #define latA 21.0065177
 #define longA 105.8429565
 
@@ -176,7 +179,25 @@ int main(int argc, char **argv) {
   ros::init(argc_, argv_, "controller_gps");
   ros::NodeHandle n;
   ros::Rate loop_rate(100);
-  offset << 0.0,0.0,0.0;
+   std::string yamlPath = ros::package::getPath("geometric_controller") + "/cfg/gps_calib.yaml";
+   std::ifstream file(yamlPath);
+    if (!file.is_open())
+    {
+        std::cerr << "Failed to open file: " << yamlPath << std::endl;
+        return 1;
+    }
+    // Load YAML data from the file
+    YAML::Node yamlData = YAML::Load(file);
+    // Access the loaded data
+    if (yamlData["offsetX"].IsDefined())
+    {
+        offset(0) = -yamlData["offsetX"].as<double>();
+    }
+    if (yamlData["offsetX"].IsDefined())
+    {
+        offset(1) = -yamlData["offsetY"].as<double>();
+    }
+  file.close();
   ros::Subscriber odomSub_ = n.subscribe("mavros/local_position/odom", 1, &odomCallback,
                                ros::TransportHints().tcpNoDelay());
   ros::Subscriber gpsSub_ = n.subscribe("/mavros/global_position/global", 1, &gpsrawCallback, ros::TransportHints().tcpNoDelay());
