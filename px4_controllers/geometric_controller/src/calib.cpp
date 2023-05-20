@@ -17,14 +17,39 @@
 #define latX 21.0067289
 #define longX 105.8427996
 
-#define latC 21.0065166
-#define longC 105.8427789
-
 #define latV 21.0065194
 #define longV 105.8429490
 
-#define latB 21.0065096
-#define longB 105.8431182
+#define latA 21.0065177
+#define longA 105.8429565
+
+#define latB 21.0065177
+#define longB 105.8431188
+
+#define latC 21.0065177
+#define longC 105.8432823
+
+#define latD 21.0066968
+#define longD 105.8432903
+
+#define latE 21.0066968
+#define longE 105.8431183
+
+#define latF 21.0066968
+#define longF 105.8429565
+
+#define latG 21.0066968
+#define longG 105.8427926
+
+#define latH 21.0065177
+#define longH 105.8427972
+
+#define latI 21.0063461
+#define longI 105.8427886
+
+#define latJ 21.0063461
+#define longJ 105.8429565
+
 
 bool gps_home_init = false, odom_init = false, setpoint_init = false;
 Eigen::Vector3d gps_home, gpsraw, local_start, mav_pos, mav_vel, offset;
@@ -76,21 +101,71 @@ int main(int argc, char** argv)
         gps_target(1) = longX;
         break;
       }
-      case 'C': {
-        gps_target(0) = latC;
-        gps_target(1) = longC;
-        break;
-      }
       case 'V': {
         gps_target(0) = latV;
         gps_target(1) = longV;
         break;
       }
+      case 'A': {
+        gps_target(0) = latA;
+        gps_target(1) = longA;
+        break;
+      }
+
       case 'B': {
         gps_target(0) = latB;
         gps_target(1) = longB;
         break;
       }
+
+      case 'C': {
+        gps_target(0) = latC;
+        gps_target(1) = longC;
+        break;
+      }
+
+      case 'D': {
+        gps_target(0) = latD;
+        gps_target(1) = longD;
+        break;
+      }
+
+      case 'E': {
+        gps_target(0) = latE;
+        gps_target(1) = longE;
+        break;
+      }
+
+      case 'F': {
+        gps_target(0) = latF;
+        gps_target(1) = longF;
+        break;
+      }
+
+      case 'G': {
+        gps_target(0) = latG;
+        gps_target(1) = longG;
+        break;
+      }
+
+      case 'H': {
+        gps_target(0) = latH;
+        gps_target(1) = longH;
+        break;
+      }
+
+      case 'I': {
+        gps_target(0) = latI;
+        gps_target(1) = longI;
+        break;
+      }
+
+      case 'J': {
+        gps_target(0) = latJ;
+        gps_target(1) = longJ;
+        break;
+      }
+  
       default:{
         std::cout << "Unknown setpoint";
         return 0;
