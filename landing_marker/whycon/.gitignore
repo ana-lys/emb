@@ -1,5 +1,4 @@
 build
-include/whycon/config.h
 papers
 Calib_Results*
 whycon.config
