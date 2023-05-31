@@ -47,6 +47,9 @@
 #define latJ 21.0063461
 #define longJ 105.8429565
 
+#define latP 21.0064734
+#define longP 105.8430317
+
 double maxj = 5.0 , maxa = 4.0 , maxv = 2.5 , maxav = 1.2 , maxaa = 2.0;
 int sample_idx=0,waypoint_idx=0;
 int sample_size=0;
@@ -162,6 +165,11 @@ int main(int argc, char **argv) {
 
       case 'J': {
         gps_target.push_back(Eigen::Vector3d(latJ,longJ,5.0));
+        break;
+      }
+
+      case 'P': {
+        gps_target.push_back(Eigen::Vector3d(latP,longP,25.0));
         break;
       }
 

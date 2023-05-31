@@ -12,6 +12,7 @@ find_package(catkin REQUIRED COMPONENTS
   geometry_msgs
   nav_msgs
   controller_msgs
+  geometric_controller
 )
 
 include_directories(
@@ -20,7 +21,7 @@ include_directories(
 
 catkin_package(
   INCLUDE_DIRS include
-  CATKIN_DEPENDS roscpp rospy std_msgs sensor_msgs geometry_msgs nav_msgs controller_msgs
+  CATKIN_DEPENDS roscpp rospy std_msgs sensor_msgs geometry_msgs nav_msgs controller_msgs geometric_controller
 )
 
 add_executable(${PROJECT_NAME}_node src/marker_planner.cpp)

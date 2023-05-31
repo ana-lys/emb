@@ -19,6 +19,8 @@
   <build_export_depend>std_msgs</build_export_depend>
   <build_depend>nav_msgs</build_depend>
   <build_depend>controller_msgs</build_depend>
+  <build_depend>geometric_controller</build_depend>
+  <exec_depend>geometric_controller</exec_depend>
   <exec_depend>controller_msgs</exec_depend>
   <exec_depend>nav_msgs</exec_depend>
   <exec_depend>roscpp</exec_depend>

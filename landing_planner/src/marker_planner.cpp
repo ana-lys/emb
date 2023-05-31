@@ -6,6 +6,8 @@
 #include <nav_msgs/Odometry.h>
 #include <controller_msgs/FlatTarget.h>
 #include <visualization_msgs/Marker.h>
+#include <geometric_controller/setmode.h>
+#include <geometric_controller/getmode.h>
 #include <visualization_msgs/MarkerArray.h>
 #include <sys/resource.h>
 #include <deque>
@@ -85,14 +87,14 @@ private:
 	ros::Subscriber odom_sub;
 
 	/******************************Publisher***********************************/
-	ros::Publisher pose_pub;
+	ros::Publisher pose_pub,setpoint_pub;
 	ros::Publisher controller_pub;
 
     /******************************Publisher***********************************/
 	ros::Timer planner,pose_mk;
 	/******************************Variable***********************************/
 	Gauss_pdf reference,matching,height_matching;
-	bool safezone;
+	bool safezone,marker_received;
 	Eigen::Vector3d discovery = Eigen::Vector3d::Zero();
 	Eigen::Vector3d output = Eigen::Vector3d::Zero();
 	Eigen::Vector3d safezone_output = Eigen::Vector3d::Zero();
@@ -102,7 +104,11 @@ private:
 	Eigen::Quaterniond base_quaternion;
 	Eigen::Vector3d base_pose;
 	double trust_coeff;
-	std::vector<geometry_msgs::Point> pose_points;
+	double discount,surcharge;
+	std::vector<geometry_msgs::Point> pose_points,target_points,marker_points;
+	enum state {INIT=0,EXECUTE=1,FINNISH=2} state_;
+	geometric_controller::setmode setModeCall;
+	ros::ServiceClient setModeClient;
 
 public:
 	/*
@@ -116,9 +122,13 @@ public:
 
 		odom_sub = nh.subscribe("/mavros/local_position/odom",1, &MarkerPlanner::odom_callback,this);
 
-		pose_pub = nh.advertise<visualization_msgs::Marker>("/pose/array", 1);
+		setModeClient = nh.serviceClient<geometric_controller::setmode>("/controller/set_mode");
 
-		controller_pub = nh.advertise<controller_msgs::FlatTarget>("/reference/flatsetpoint",2);
+		pose_pub = nh.advertise<visualization_msgs::Marker>("/landing/array/pose", 1);
+
+		setpoint_pub = nh.advertise<visualization_msgs::Marker>("/landing/array/setpoint", 1);
+
+		controller_pub = nh.advertise<controller_msgs::FlatTarget>("/controller/flatsetpoint",2);
 
 		planner = nh.createTimer(ros::Duration(0.03), &MarkerPlanner::plannerCallback , this);
 
@@ -130,13 +140,17 @@ public:
 			temp += reference.normal_pdf(-3.0+0.06*i)*0.06;
 			zreference[i] = temp;  
 		}
+		discount = 1.0;
+		surcharge = 0.05;
 		safezone = false;
+		marker_received = false;
+		state_ = INIT;
 		matching.set_param(0,3.0);
 		height_matching.set_param(0,0.2);
 	}
 	Eigen::Vector3d landing_limmiter(Eigen::Vector3d &raw){
-		double limmited =  std::min(std::max(fabs(raw(0))/sin(0.35),fabs(raw(1))/sin(0.65)),22.0);
-		return raw + Eigen::Vector3d::UnitZ() * (limmited + 1);
+		double limmited =  std::min(std::max(fabs(raw(0))/sin(0.35),fabs(raw(1))/sin(0.65)),25.0);
+		return raw + Eigen::Vector3d::UnitZ() * (limmited + 2);
 	}
 	void marker_callback(const geometry_msgs::Point &pose){
 		Eigen::Quaterniond Base_camera = Eigen::Quaterniond(Eigen::AngleAxisd(M_PI, Eigen::Vector3d(0.70710678118,-0.70710678118,0.0)));
@@ -144,16 +158,16 @@ public:
 		Eigen::Vector3d M_Base  = Base_camera * M_Cam;
 		Eigen::Vector3d M_Inertia  = base_quaternion * M_Base;
 		Eigen::Vector3d Setpoint;
-		
-		if(M_Inertia(2) < -2.0){
-			Setpoint = landing_limmiter(M_Inertia);
-			safezone = false;
+		Setpoint = landing_limmiter(M_Inertia);
+		if(M_Inertia(2) < -3.0){
+		safezone = false;
 		}
-		else {
-			Setpoint = M_Inertia;
-			safezone = true;
-		}
+		else
+		safezone = true;
+		if(target_points.size() > 20) target_points.erase(target_points.begin());
+		target_points.push_back(toGeometry_msgs(Setpoint+base_pose));
 		event_execute(Setpoint);
+		marker_received = true;
 	}
 
 	Eigen::Vector3d getzreference(Eigen::Vector3d zvalue){
@@ -169,46 +183,79 @@ public:
 		return result;
 	}
 	void plannerCallback(const ros::TimerEvent &event){
-		check_event_deque();
-		discovery = Eigen::Vector3d::Zero();
-		output = Eigen::Vector3d::Zero();
-
-		controller_msgs::FlatTarget control_msg;
-		control_msg.header.stamp = ros::Time::now();
-
-		if(event_dq.size()>0)
-			for (int i = 0 ; i < event_dq.size();i++){
-				discovery += getzreference(event_dq[i].getz_value()).cwiseProduct(event_dq[i].getscalar());
-				output += event_dq[i].getfuction_value();
-				control_msg.type_mask = 2 ;
-				control_msg.velocity.x = output(0);
-				control_msg.velocity.y = output(1);
-				control_msg.velocity.z = output(2);
+		switch (state_) {
+			case INIT : {
+				if(marker_received){
+			    	setModeCall.request.mode = setModeCall.request.MISSION_EXECUTION;
+      				setModeCall.request.timeout = 50;
+      				setModeClient.call(setModeCall);
+      				if(setModeCall.response.success)
+      				state_ = EXECUTE;
+					else{
+						ROS_INFO_STREAM("failed");
+					}
+				}
+				break;
 			}
-		if(safezone){
-			control_msg.type_mask = 0;
-			control_msg.position.x = safezone_output(0);
-			control_msg.position.y = safezone_output(1);
-			control_msg.position.z = safezone_output(2);
+			case EXECUTE : {
+				if(safezone){	
+					discount *= 0.95;
+					surcharge /= 0.95;
+					surcharge = std::min(surcharge,1.0);
+					discount = std::max(discount,0.04);
+				}
+				else{
+					discount /= 0.95;
+					surcharge *= 0.95;
+					surcharge = std::max(surcharge,0.04);
+					discount = std::min(discount,1.0);
+				}
+				check_event_deque();
+				discovery = Eigen::Vector3d::Zero();
+				output = Eigen::Vector3d::Zero();
+
+				controller_msgs::FlatTarget control_msg;
+				control_msg.header.stamp = ros::Time::now();
+				control_msg.type_mask = 2 ;
+				Eigen::Vector3d vel_sp = Eigen::Vector3d::Zero();
+				if(event_dq.size()>0){
+					for (int i = 0 ; i < event_dq.size();i++){
+						discovery += getzreference(event_dq[i].getz_value()).cwiseProduct(event_dq[i].getscalar());
+						output += event_dq[i].getfuction_value();
+					}
+					vel_sp = output*discount;
+				}
+				vel_sp += safezone_output * surcharge;
+				if(vel_sp.norm()<0.001) vel_sp = Eigen::Vector3d::UnitZ()*0.001;
+				control_msg.velocity = toV3_msgs(vel_sp);
+				controller_pub.publish(control_msg);
+				if(discount < 0.05 && safezone_output.norm()<0.2) state_ = FINNISH;
+				break;
+			}
+			case FINNISH : {
+				setModeCall.request.mode = setModeCall.request.AUTO_LAND;
+      			setModeCall.request.timeout = 50;
+      			setModeClient.call(setModeCall);
+      			if(setModeCall.response.success)
+      			ros::shutdown();
+				break;
+			}
+
 		}
 		
-		controller_pub.publish(control_msg);
 	}
-	int event_execute(Eigen::Vector3d &setpoint){
+	void event_execute(Eigen::Vector3d &setpoint){
 		Eigen::Vector3d discovarable = setpoint - discovery;
 		if(discovarable.hasNaN())
-		return 0;
+			return;
 		else if(safezone){
-		safezone_output = setpoint + Eigen::Vector3d::UnitZ() * 1.5 + base_pose;
-		return 1;
+			safezone_output = setpoint;
 		}
 		else{
-		Eigen::Vector3d event_sigma = Eigen::Vector3d(4.0,4.0,6.0) - 18 * Eigen::Vector3d(matching.normal_pdf(discovarable(0)),matching.normal_pdf(discovarable(1)),matching.normal_pdf(discovarable(2)));
-		Aruco_event new_event(event_sigma,discovarable);
-		event_dq.push_back(new_event);
-		return 1;
+			Eigen::Vector3d event_sigma = Eigen::Vector3d(4.0,4.0,6.0) - 18 * Eigen::Vector3d(matching.normal_pdf(discovarable(0)),matching.normal_pdf(discovarable(1)),matching.normal_pdf(discovarable(2)));
+			Aruco_event new_event(event_sigma,discovarable);
+			event_dq.push_back(new_event);
 		}
-	
 	}
 	void odom_callback(const nav_msgs::Odometry &msg){
 		if(!isnan(msg.pose.pose.orientation.w)&&!isnan(msg.pose.pose.orientation.x)&&!isnan(msg.pose.pose.orientation.y)&&!isnan(msg.pose.pose.orientation.z)){
@@ -246,6 +293,13 @@ public:
 		r.z =v3(2) ;
 		return r;
 		}
+	geometry_msgs::Vector3 toV3_msgs( const Eigen::Vector3d &v3 ){
+		geometry_msgs::Vector3 r;
+		r.x =v3(0) ;
+		r.y =v3(1) ;
+		r.z =v3(2) ;
+		return r;
+		}
 	void rvisualize(const ros::TimerEvent &event){
 		visualization_msgs::Marker marker;
 		marker.header.frame_id = "map";
@@ -267,6 +321,11 @@ public:
 		marker.color.g = 0.0;
 		marker.color.b = 0.0;
 		pose_pub.publish(marker);
+		marker.points = target_points;
+		marker.color.r = 0.0;
+		marker.color.g = 0.0;
+		marker.color.b = 1.0;
+		setpoint_pub.publish(marker);
 	}
 		
 	inline Eigen::Vector3d toEigen(const geometry_msgs::Vector3 &v3) {
