@@ -63,6 +63,13 @@ std::vector<Eigen::Vector3d> gps_target,local_setpoint;
 double UTM_X,UTM_Y;
 double UTM_SP_X,UTM_SP_Y;
 
+void operator>>(const YAML::Node& node, Eigen::Vector3d& v)
+{
+    v.x() = node[0].as<double>();
+    v.y() = node[1].as<double>();
+    v.z() = node[2].as<double>();
+}
+
 double ToEulerYaw(const Eigen::Quaterniond& q){
     Vector3f angles;    //yaw pitch roll
     const auto x = q.x();
@@ -116,71 +123,45 @@ void gpsrawCallback(const sensor_msgs::NavSatFix &msg){
 }
 
 int main(int argc, char **argv) {
-  for(int i = 1; i < argc ; i++){ 
-    switch(argv[i][0]){
-      case 'A': {
-        gps_target.push_back(Eigen::Vector3d(latA,longA,5.0));
-        break;
-      }
-
-      case 'B': {
-        gps_target.push_back(Eigen::Vector3d(latB,longB,5.0));
-        break;
-      }
-
-      case 'C': {
-        gps_target.push_back(Eigen::Vector3d(latC,longC,5.0));
-        break;
-      }
-
-      case 'D': {
-        gps_target.push_back(Eigen::Vector3d(latD,longD,7.0));
-        break;
-      }
-
-      case 'E': {
-        gps_target.push_back(Eigen::Vector3d(latE,longE,7.0));
-        break;
-      }
-
-      case 'F': {
-        gps_target.push_back(Eigen::Vector3d(latF,longF,7.0));
-        break;
-      }
-
-      case 'G': {
-        gps_target.push_back(Eigen::Vector3d(latG,longG,7.0));
-        break;
-      }
-
-      case 'H': {
-        gps_target.push_back(Eigen::Vector3d(latH,longH,7.0));
-        break;
-      }
-
-      case 'I': {
-        gps_target.push_back(Eigen::Vector3d(latI,longI,5.0));
-        break;
-      }
-
-      case 'J': {
-        gps_target.push_back(Eigen::Vector3d(latJ,longJ,5.0));
-        break;
-      }
-
-      case 'P': {
-        gps_target.push_back(Eigen::Vector3d(latP,longP,25.0));
-        break;
-      }
-
-      default:{
-        ROS_ERROR("Invalid command");
-        return 0;
-      }
-    }
-
+  std::string llh_Path = ros::package::getPath("geometric_controller") + "/cfg/gps_longlat.yaml";
+  std::ifstream llh_file(llh_Path);
+  if (!llh_file.is_open())
+  {
+      std::cerr << "Failed to open file: " << llh_Path << std::endl;
+      return 1;
   }
- 
+  // Load YAML data from the file
+  YAML::Node yamlNode = YAML::Load(llh_file);
+
+  std::vector<char> charTarget;
+  for (int i = 1; i < argc; i++)
+  {
+      charTarget.push_back(argv[i][0]);
+  }
+  try
+    {
+        for (char target : charTarget)
+        {
+            YAML::Node targetNode = yamlNode[target];
+            if (targetNode.IsNull())
+            {
+                std::cout << "Invalid target: " << target << "\n";
+                continue;
+            }
+
+            Eigen::Vector3d v;
+            targetNode >> v;
+            gps_target.push_back(v);
+        }
+        for (const auto& target : gps_target)
+        {
+            std::cout << "Latitude: " << target.x() << ", Longitude: " << target.y() << ", Altitude: " << target.z() << "\n";
+        }
+    }
+  catch (const YAML::Exception& e)
+  {
+      std::cout << "Error while parsing YAML file: " << e.what() << "\n";
+  }
   int argc_ = 0;
   char ** argv_;
 
