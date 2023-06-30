@@ -79,6 +79,8 @@
         "streambuf": "cpp",
         "system_error": "cpp",
         "typeindex": "cpp",
-        "variant": "cpp"
+        "variant": "cpp",
+        "core": "cpp",
+        "dense": "cpp"
     }
 }

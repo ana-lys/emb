@@ -141,7 +141,13 @@ int main(int argc, char **argv) {
   ros::Publisher acc_cmd = n.advertise<geometry_msgs::Point>("/controller/acc_cmd",1);
   ros::ServiceClient setModeClient = n.serviceClient<geometric_controller::setmode>("/controller/set_mode");
   geometric_controller::setmode setModeCall;
-
+  Eigen::Vector3d x_B, y_B,z_B;
+  x_B << 0.0 , 1.0, -0.0;
+  y_B << -1.0, 0.0, 0.0;
+  z_B << 0.0, 0.0, 1.0;
+  const Eigen::Matrix3d R_W_B((Eigen::Matrix3d() << x_B, y_B, z_B).finished());
+  Eigen::Quaterniond desired_attitude(R_W_B);
+  ROS_INFO_STREAM("desq "<<desired_attitude.w() << " "<<desired_attitude.x() << " "<<desired_attitude.y()<<" "<<desired_attitude.z());
   
   while(ros::ok()){
     loop_rate.sleep();

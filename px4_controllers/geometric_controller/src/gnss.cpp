@@ -17,39 +17,6 @@
 #include <fstream>
 #include <yaml-cpp/yaml.h>
 
-#define latA 21.0065177
-#define longA 105.8429565
-
-#define latB 21.0065177
-#define longB 105.8431188
-
-#define latC 21.0065177
-#define longC 105.8432823
-
-#define latD 21.0066968
-#define longD 105.8432903
-
-#define latE 21.0066968
-#define longE 105.8431183
-
-#define latF 21.0066968
-#define longF 105.8429565
-
-#define latG 21.0066968
-#define longG 105.8427926
-
-#define latH 21.0065177
-#define longH 105.8427972
-
-#define latI 21.0063461
-#define longI 105.8427886
-
-#define latJ 21.0063461
-#define longJ 105.8429565
-
-#define latP 21.0064734
-#define longP 105.8430317
-
 double maxj = 5.0 , maxa = 4.0 , maxv = 2.5 , maxav = 1.2 , maxaa = 2.0;
 int sample_idx=0,waypoint_idx=0;
 int sample_size=0;
@@ -132,7 +99,12 @@ int main(int argc, char **argv) {
   }
   // Load YAML data from the file
   YAML::Node yamlNode = YAML::Load(llh_file);
-
+  double yaw_offset = 0.0;
+  if (yamlNode["YawOffset"].IsDefined())
+    {
+        yaw_offset = yamlNode["YawOffset"].as<double>();
+    }
+  std::cout << "yaw_offset = : " << yaw_offset << "\n";
   std::vector<char> charTarget;
   for (int i = 1; i < argc; i++)
   {
@@ -223,7 +195,7 @@ int main(int argc, char **argv) {
         cmd.position = toGeometry_msgs(plan.getPos(sample_idx));
         cmd.velocity = toVector3(plan.getVel(sample_idx));
         cmd.acceleration = toVector3(plan.getAcc(sample_idx));
-        cmd.yaw = plan.getYaw(sample_idx);
+        cmd.yaw = plan.getYaw(sample_idx) + yaw_offset;
         pos_cmd.publish(cmd);
         geometry_msgs::Point acc_msg;
         acc_msg = toGeometry_msgs(plan.getAcc(sample_idx));
