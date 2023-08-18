@@ -33,7 +33,8 @@ namespace aruco_gridboard
         cv_ptr(),
         image_header_(),
         got_image_(false),
-        lastHeaderSeq_(0)
+        lastHeaderSeq_(0),
+        should_shutdown_(false)
     {
         //get the tracker configuration file
         //this file contains all of the tracker's parameters, they are not passed to ros directly.
@@ -46,9 +47,11 @@ namespace aruco_gridboard
         n_.param("camera_offset_y", camera_offset_y_, 0.0);
         n_.param("camera_offset_z", camera_offset_z_, 0.0);
         posePub_ = n_.advertise<geometry_msgs::Point>("/landing/marker_pose/aruco",1);
+        terminateServer = n_.advertiseService("/landing/marker_terminate",&Node::terminateCallback,this);
         ROS_INFO("Detector parameter file =%s",detector_param_path_.c_str());
         ROS_INFO("Board config file: =%s",board_path_.c_str());
     }
+
 
     Node::~Node()
     {
@@ -94,6 +97,7 @@ namespace aruco_gridboard
     void Node::imageCallback(const sensor_msgs::ImageConstPtr & image)
     {
         image_header_ = image->header;
+        // ROS_INFO("Image_received:");
         try
         {
             boost::mutex::scoped_lock(lock_);
@@ -124,6 +128,13 @@ namespace aruco_gridboard
             ROS_ERROR("cv_bridge exception: %s", e.what());
             return;
         }
+    }
+
+    bool Node::terminateCallback(marker_planner::terminate::Request& request, marker_planner::terminate::Response& response)
+    {
+      response.success = true;
+      should_shutdown_ = true;
+      return true;
     }
 
   
@@ -196,7 +207,8 @@ namespace aruco_gridboard
 
         while(ros::ok())
         {
-
+            if(should_shutdown_)
+                ros::shutdown();
             if (lastHeaderSeq_ != image_header_.seq)
             {
                 // Get the picture

@@ -90,6 +90,8 @@
         "hash_map": "cpp",
         "hash_set": "cpp",
         "ranges": "cpp",
-        "valarray": "cpp"
+        "valarray": "cpp",
+        "core": "cpp",
+        "span": "cpp"
     }
 }

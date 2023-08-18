@@ -1,8 +1,8 @@
 <?xml version="1.0"?>
 <package>
-  <name>geometric_controller</name>
+  <name>sequence_controller</name>
   <version>0.0.0</version>
-  <description>Trajectory Tracking controller for px4</description>
+  <description>sequence controller for px4</description>
 
   <maintainer email="shatapdude@gmail.com">ana_lys</maintainer>
 
@@ -15,7 +15,6 @@
   <build_depend>rospy</build_depend>
   <build_depend>std_msgs</build_depend>
   <build_depend>sensor_msgs</build_depend>
-  <build_depend>sequence_controller</build_depend>
   <build_depend>nav_msgs</build_depend>
   <build_depend>geometry_msgs</build_depend>
   <build_depend>controller_msgs</build_depend>
@@ -28,9 +27,7 @@
   <build_depend> message_filters</build_depend>
   <build_depend>message_generation</build_depend>
   <build_depend>yaml_cpp_catkin</build_depend>
-  
-  
-  <run_depend>sequence_controller</run_depend>
+
   <run_depend>yaml_cpp_catkin</run_depend>
   <run_depend>message_runtime</run_depend>
   <run_depend>dynamic_reconfigure</run_depend>

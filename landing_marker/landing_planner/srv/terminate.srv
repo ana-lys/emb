@@ -1,0 +1,6 @@
+#request fields
+bool terminate
+---
+#response constants
+bool success
+int8 result

@@ -139,8 +139,8 @@ int main(int argc, char **argv) {
   ros::Subscriber gpsSub_ = n.subscribe("/mavros/global_position/global", 1, &gpsrawCallback, ros::TransportHints().tcpNoDelay());
   ros::Publisher pos_cmd = n.advertise<controller_msgs::PositionCommand>("/controller/pos_cmd",1);
   ros::Publisher acc_cmd = n.advertise<geometry_msgs::Point>("/controller/acc_cmd",1);
-  ros::ServiceClient setModeClient = n.serviceClient<geometric_controller::setmode>("/controller/set_mode");
-  geometric_controller::setmode setModeCall;
+  ros::ServiceClient setModeClient = n.serviceClient<controller_msgs::setmode>("/controller/set_mode");
+  controller_msgs::setmode setModeCall;
   Eigen::Vector3d x_B, y_B,z_B;
   x_B << 0.0 , 1.0, -0.0;
   y_B << -1.0, 0.0, 0.0;

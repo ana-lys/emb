@@ -15,6 +15,7 @@
 #include <image_geometry/pinhole_camera_model.h>
 #include <std_msgs/Header.h>
 #include <opencv2/aruco.hpp>
+#include <marker_planner/terminate.h>
 
 namespace aruco_gridboard{
         class Node{
@@ -28,6 +29,7 @@ namespace aruco_gridboard{
                 std::string camera_frame_name_;
                 bool debug_display_;
                 bool status_tracker_;
+                bool should_shutdown_;
                 cv::Ptr<cv::aruco::Board> board_;
                 image_geometry::PinholeCameraModel camera_model_;
                 cv::Mat camMatrix_;
@@ -41,11 +43,13 @@ namespace aruco_gridboard{
                 double camera_offset_x_;
                 double camera_offset_y_;
                 double camera_offset_z_;
+                marker_planner::terminate markerTerminate;
+                ros::ServiceServer terminateServer;
 
             void waitForImage();
             void frameCallback(const sensor_msgs::ImageConstPtr& image, const sensor_msgs::CameraInfoConstPtr& cam_info);
             void publishPose();
-
+            bool terminateCallback(marker_planner::terminate::Request& request, marker_planner::terminate::Response& response);
             void imageCallback(const sensor_msgs::ImageConstPtr &msg);
             void camInfoCallback(const sensor_msgs::CameraInfo::ConstPtr &msg);
 

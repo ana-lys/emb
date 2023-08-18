@@ -33,6 +33,7 @@
 #include <visualization_msgs/Marker.h>
 #include <controller_msgs/FlatTarget.h>
 #include <controller_msgs/PositionCommand.h>
+#include <controller_msgs/Sequence.h>
 #include <trajectory_msgs/MultiDOFJointTrajectory.h>
 #include <trajectory_msgs/MultiDOFJointTrajectoryPoint.h>
 
@@ -41,9 +42,11 @@
 #include <geometric_controller/GeometricControllerConfig.h>
 #include <geometric_controller/common.h>
 #include <geometric_controller/UTM.h>
-#include <geometric_controller/setmode.h>
-#include <geometric_controller/getmode.h>
-#include <geometric_controller/logging_lib.h>
+#include <controller_msgs/setmode.h>
+#include <controller_msgs/getmode.h>
+#include <ros/package.h>
+
+// #include <geometric_controller/logging_lib.h>
 #include <std_srvs/SetBool.h>
 
 #include <nav_msgs/Odometry.h>
@@ -88,7 +91,7 @@ class geometricCtrl {
   ros::Publisher setpoint_raw_Pub, debugGpsLocalPub_ , debugAccelPub_, debugVelPub_ , debugPosePub_ , debugStatePub_;
   ros::Publisher rviz1Pub_,rviz2Pub_,rvizPosePub_,rvizPathPub_,rvizAcelDesPub_,rvizAcelPub_,rvizQuatDesPub_,rvizQuatPub_,debugDragPub_;
   ros::Publisher systemstatusPub_;
-
+  ros::Publisher sequencestatusPub_;
   ros::ServiceClient arming_client_,land_client_;
   ros::ServiceClient set_mode_client_;
 
@@ -97,9 +100,9 @@ class geometricCtrl {
   ros::Timer cmdloop_timer_, statusloop_timer_ ;
   ros::Time Flight_start,last_request_;
   string mav_name_;
-  bool fail_detec_;
+  bool failsafe;
   bool take_off_request_,hold_request_;
-  int ctrl_mode_;
+  int ctrl_mode_,control_seq;
   bool landing_detected = false;
   bool sim_enable_, rcHold , Automatic_ ;
   double reference_request_dt_;
@@ -152,8 +155,8 @@ class geometricCtrl {
   void rawsetpointTakeOff(const Eigen::Vector3d &position , const double &yaw);
   void rawsetpointHold(const Eigen::Vector3d &position , const double &yaw);
 
-  bool setModeCallback( geometric_controller::setmodeRequest &req , geometric_controller::setmodeResponse &res);
-  bool getModeCallback( geometric_controller::getmodeRequest &req , geometric_controller::getmodeResponse &res);
+  bool setModeCallback( controller_msgs::setmodeRequest &req , controller_msgs::setmodeResponse &res);
+  bool getModeCallback( controller_msgs::getmodeRequest &req , controller_msgs::getmodeResponse &res);
   
   void flattargetCallback(const controller_msgs::FlatTarget &msg);
   void quad_msgsCallback(const controller_msgs::PositionCommand &msg);
@@ -168,7 +171,7 @@ class geometricCtrl {
   void batteryCallback(const sensor_msgs::BatteryState &state);
   void rcCallback(const mavros_msgs::RCIn &msg);
   void odomCallback(const nav_msgs::OdometryConstPtr &odomMsg);
-
+  void sequenceCallback();
   bool almostZero(double value);
   double controlyawvel();
   void checkingHoldSwitch();

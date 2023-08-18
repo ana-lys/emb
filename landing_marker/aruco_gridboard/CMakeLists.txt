@@ -27,6 +27,7 @@ find_package(catkin REQUIRED COMPONENTS
   sensor_msgs
   std_msgs
   tf
+  marker_planner
 )
 
 
@@ -51,6 +52,7 @@ catkin_package(
    roscpp
    sensor_msgs
    std_msgs
+   marker_planner
 )
 
 add_executable(aruco_gridboard

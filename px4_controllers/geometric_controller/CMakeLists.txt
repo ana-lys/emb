@@ -16,16 +16,11 @@ find_package(catkin REQUIRED COMPONENTS
   message_filters
   message_generation
   yaml_cpp_catkin
+  
 )
 
 generate_dynamic_reconfigure_options(
   cfg/GeometricController.cfg
-)
-
-add_service_files(
-  FILES
-  setmode.srv
-  getmode.srv
 )
 
 generate_messages(

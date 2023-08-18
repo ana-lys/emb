@@ -6,8 +6,10 @@
 #include <nav_msgs/Odometry.h>
 #include <controller_msgs/FlatTarget.h>
 #include <visualization_msgs/Marker.h>
-#include <geometric_controller/setmode.h>
-#include <geometric_controller/getmode.h>
+#include <controller_msgs/setmode.h>
+#include <controller_msgs/getmode.h>
+#include <controller_msgs/start.h>
+#include <marker_planner/terminate.h>
 #include <visualization_msgs/MarkerArray.h>
 #include <sys/resource.h>
 #include <deque>
@@ -95,6 +97,8 @@ private:
 	/******************************Variable***********************************/
 	Gauss_pdf reference,matching,height_matching;
 	bool safezone,marker_received;
+	bool marker_terminated = false , planner_terminated = false;
+	bool start =false;
 	Eigen::Vector3d discovery = Eigen::Vector3d::Zero();
 	Eigen::Vector3d output = Eigen::Vector3d::Zero();
 	Eigen::Vector3d safezone_output = Eigen::Vector3d::Zero();
@@ -107,8 +111,12 @@ private:
 	double discount,surcharge;
 	std::vector<geometry_msgs::Point> pose_points,target_points,marker_points;
 	enum state {INIT=0,EXECUTE=1,FINNISH=2} state_;
-	geometric_controller::setmode setModeCall;
+	int seqID = 0;
+	controller_msgs::setmode setModeCall;
+	marker_planner::terminate markerTerminate;
 	ros::ServiceClient setModeClient;
+	ros::ServiceClient terminateClient;
+	ros::ServiceServer startServer;
 
 public:
 	/*
@@ -122,7 +130,9 @@ public:
 
 		odom_sub = nh.subscribe("/mavros/local_position/odom",1, &MarkerPlanner::odom_callback,this);
 
-		setModeClient = nh.serviceClient<geometric_controller::setmode>("/controller/set_mode");
+		setModeClient = nh.serviceClient<controller_msgs::setmode>("/controller/set_mode");
+
+		terminateClient = nh.serviceClient<marker_planner::terminate>("/landing/marker_terminate");
 
 		pose_pub = nh.advertise<visualization_msgs::Marker>("/landing/array/pose", 1);
 
@@ -133,6 +143,8 @@ public:
 		planner = nh.createTimer(ros::Duration(0.03), &MarkerPlanner::plannerCallback , this);
 
 		pose_mk = nh.createTimer(ros::Duration(0.03), &MarkerPlanner::rvisualize , this);
+
+		startServer = nh.advertiseService("/sequence/start", &MarkerPlanner::startCallback , this);
 	
 		double temp = 0;
 		reference.set_param(0,1.0);
@@ -152,22 +164,39 @@ public:
 		double limmited =  std::min(std::max(fabs(raw(0))/sin(0.35),fabs(raw(1))/sin(0.65)),25.0);
 		return raw + Eigen::Vector3d::UnitZ() * (limmited + 2);
 	}
+
+	bool startCallback(controller_msgs::start::Request& req, controller_msgs::start::Response& res){
+  		// ROS_INFO_STREAM(start);
+  		if(!start){
+  		seqID = req.seq;
+  		start = true ;
+  		res.success = true;
+  		res.result = 1;
+  		return true;
+  		}
+  		return false;
+	}
+
 	void marker_callback(const geometry_msgs::Point &pose){
-		Eigen::Quaterniond Base_camera = Eigen::Quaterniond(Eigen::AngleAxisd(M_PI, Eigen::Vector3d(0.70710678118,-0.70710678118,0.0)));
-		Eigen::Vector3d M_Cam = toEigen(pose);
-		Eigen::Vector3d M_Base  = Base_camera * M_Cam;
-		Eigen::Vector3d M_Inertia  = base_quaternion * M_Base;
-		Eigen::Vector3d Setpoint;
-		Setpoint = landing_limmiter(M_Inertia);
-		if(M_Inertia(2) < -3.0){
-		safezone = false;
+		if(start){
+			Eigen::Quaterniond Base_camera = Eigen::Quaterniond(Eigen::AngleAxisd(M_PI, Eigen::Vector3d(0.70710678118,-0.70710678118,0.0)));
+			Eigen::Vector3d M_Cam = toEigen(pose);
+			Eigen::Vector3d M_Base  = Base_camera * M_Cam;
+			Eigen::Vector3d M_Inertia  = base_quaternion * M_Base;
+			Eigen::Vector3d Setpoint;
+			Setpoint = landing_limmiter(M_Inertia);
+			if(M_Inertia(2) < -3.0){
+				safezone = false;
+			}
+			else
+				safezone = true;
+			
+			if(target_points.size() > 20) 
+				target_points.erase(target_points.begin());
+			target_points.push_back(toGeometry_msgs(Setpoint+base_pose));
+			event_execute(Setpoint);
+			marker_received = true;
 		}
-		else
-		safezone = true;
-		if(target_points.size() > 20) target_points.erase(target_points.begin());
-		target_points.push_back(toGeometry_msgs(Setpoint+base_pose));
-		event_execute(Setpoint);
-		marker_received = true;
 	}
 
 	Eigen::Vector3d getzreference(Eigen::Vector3d zvalue){
@@ -188,6 +217,7 @@ public:
 				if(marker_received){
 			    	setModeCall.request.mode = setModeCall.request.MISSION_EXECUTION;
       				setModeCall.request.timeout = 50;
+					setModeCall.request.seq = seqID;
       				setModeClient.call(setModeCall);
       				if(setModeCall.response.success)
       				state_ = EXECUTE;
@@ -233,11 +263,23 @@ public:
 				break;
 			}
 			case FINNISH : {
+				if(!planner_terminated){
 				setModeCall.request.mode = setModeCall.request.AUTO_LAND;
       			setModeCall.request.timeout = 50;
       			setModeClient.call(setModeCall);
-      			if(setModeCall.response.success)
+      			if(setModeCall.response.success){
+				planner_terminated = true;}
+				}
+				if(!marker_terminated){
+				markerTerminate.request.terminate = true;
+      			terminateClient.call(markerTerminate);
+      			if(markerTerminate.response.success){
+				marker_terminated = true;}
+				}
+				if(marker_terminated && planner_terminated){
+				ROS_INFO("Marker Planner Shutting down");
       			ros::shutdown();
+				}
 				break;
 			}
 

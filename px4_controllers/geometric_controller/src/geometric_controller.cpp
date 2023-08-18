@@ -6,7 +6,7 @@ using namespace std;
 geometricCtrl::geometricCtrl(const ros::NodeHandle &nh, const ros::NodeHandle &nh_private)
     : nh_(nh),
       nh_private_(nh_private),
-      fail_detec_(false),
+      failsafe(false),
       node_state(WAITING_FOR_HOME_POSE) {
   
   // 4 controller input standard
@@ -52,10 +52,10 @@ geometricCtrl::geometricCtrl(const ros::NodeHandle &nh, const ros::NodeHandle &n
   land_client_ = nh_.serviceClient<mavros_msgs::CommandTOL>("/mavros/cmd/land");
 
   // Set state services
-
   setModeServer_ =  nh_.advertiseService("/controller/set_mode",&geometricCtrl::setModeCallback,this);
   getModeServer_ =  nh_.advertiseService("/controller/get_mode",&geometricCtrl::getModeCallback,this);
-
+  // Sequence topics
+  sequencestatusPub_ = nh_.advertise<controller_msgs::Sequence>("/sequence/status", 1);
   // Debug topics
   debugGpsLocalPub_ = nh_.advertise<geometry_msgs::Point>("/debug/localgps_pos", 1);
   debugAccelPub_ = nh_.advertise<geometry_msgs::Point>("/debug/accel_command", 1);
@@ -96,6 +96,7 @@ geometricCtrl::geometricCtrl(const ros::NodeHandle &nh, const ros::NodeHandle &n
   nh_private_.param<double>("D_z", dz_, 0.1);
   nh_private_.param<bool>("Automatic", Automatic_, false);
   nh_private_.param<int>("posehistory_window", posehistory_window_, 200);
+  control_seq = 0;
 
   control_mask == ACCELERATION_FEEDBACK;
   targetVel_ << 0.0, 0.0, 0.0;
@@ -110,7 +111,7 @@ geometricCtrl::geometricCtrl(const ros::NodeHandle &nh, const ros::NodeHandle &n
   rcHold = false;
   D_ << dx_, dy_, dz_;
   last_integral_error = Eigen::Vector3d::Zero();
-  creates();
+  // creates();
   Flight_start = ros::Time::now();
 }
 geometricCtrl::~geometricCtrl() {
@@ -227,7 +228,7 @@ void geometricCtrl::mavtwistCallback(const geometry_msgs::TwistStamped &msg) {
   mavVel_ = toEigen(msg.twist.linear);
   mavRate_ = toEigen(msg.twist.angular);
 }
-bool geometricCtrl::getModeCallback( geometric_controller::getmodeRequest &req , geometric_controller::getmodeResponse &res){
+bool geometricCtrl::getModeCallback( controller_msgs::getmodeRequest &req , controller_msgs::getmodeResponse &res){
    switch (node_state) {
     case WAITING_FOR_HOME_POSE : {
       res.result = req.WAITING_FOR_HOME_POSE;
@@ -256,7 +257,7 @@ bool geometricCtrl::getModeCallback( geometric_controller::getmodeRequest &req ,
    }
    return true;
 }
-bool geometricCtrl::setModeCallback( geometric_controller::setmodeRequest &req , geometric_controller::setmodeResponse &res){
+bool geometricCtrl::setModeCallback( controller_msgs::setmodeRequest &req , controller_msgs::setmodeResponse &res){
   switch(req.mode){
     case req.TAKE_OFF_AND_HOLD :{
       if(node_state == ONGROUND && req.sub < 5.1 && mav_status == MAV_STATE_STANDBY)
@@ -268,6 +269,8 @@ bool geometricCtrl::setModeCallback( geometric_controller::setmodeRequest &req ,
          node_state = TAKE_OFF;
          res.success = true;
          take_off_request_ = true;
+         control_seq = req.seq;
+         failsafe = req.failsafe;
         }
         else res.success = false;
     }
@@ -283,6 +286,8 @@ bool geometricCtrl::setModeCallback( geometric_controller::setmodeRequest &req ,
          node_state = HOLD;
          hold_request_ = true;
          res.success = true;
+         control_seq = req.seq;
+         failsafe = req.failsafe;
         }
         else res.success = false;
     break;
@@ -294,6 +299,8 @@ bool geometricCtrl::setModeCallback( geometric_controller::setmodeRequest &req ,
          ROS_INFO_STREAM("Execute start at : " << mavPos_(0) << ", " << mavPos_(1) <<", " << mavPos_(2) << " accepted");
          node_state = MISSION_EXECUTION;
          res.success = true;
+         control_seq = req.seq;
+         failsafe = req.failsafe;
         }
         else res.success = false;
     break;
@@ -305,6 +312,8 @@ bool geometricCtrl::setModeCallback( geometric_controller::setmodeRequest &req ,
          ROS_INFO_STREAM("Start  landing at : " << mavPos_(0) << ", " << mavPos_(1) <<", " << mavPos_(2) << " accepted");
          node_state = AUTO_LAND;
          res.success = true;
+         control_seq = req.seq;
+         failsafe = req.failsafe;
         }
         else res.success = false;
     break;
@@ -364,6 +373,24 @@ void geometricCtrl::rawsetpointHold(const Eigen::Vector3d &position , const doub
       setpoint_raw_Pub.publish(a);
 }
 
+void geometricCtrl::sequenceCallback(){
+  controller_msgs::Sequence seq_msg;
+  if(node_state==ONGROUND||node_state==HOLD)
+    if(failsafe)
+      seq_msg.status = seq_msg.FINNISH_FAILSAFE;
+    else
+      seq_msg.status = seq_msg.FINNISH;
+  else
+    if(failsafe)
+      seq_msg.status = seq_msg.ACTIVE_FAILSAFE;
+    else
+      seq_msg.status = seq_msg.ACTIVE;
+  
+  seq_msg.seq = control_seq;
+  seq_msg.progress = 0.0;
+  sequencestatusPub_.publish(seq_msg);
+}
+
 void geometricCtrl::cmdloopCallback(const ros::TimerEvent &event) {
   switch (node_state) {
     case WAITING_FOR_HOME_POSE: {
@@ -395,7 +422,7 @@ void geometricCtrl::cmdloopCallback(const ros::TimerEvent &event) {
           break;
         }
       }
-      updates((ros::Time::now()-Flight_start).toSec(),mavPos_(0),mavPos_(1),mavPos_(2),0,desired_acc(0),desired_acc(1),desired_acc(2),integral_error(0),integral_error(1),integral_error(2),Imu_accel(0),Imu_accel(1),Imu_accel(2),mavVel_(0),mavVel_(1),mavVel_(2), 0,0,0);
+      // updates((ros::Time::now()-Flight_start).toSec(),mavPos_(0),mavPos_(1),mavPos_(2),0,desired_acc(0),desired_acc(1),desired_acc(2),integral_error(0),integral_error(1),integral_error(2),Imu_accel(0),Imu_accel(1),Imu_accel(2),mavVel_(0),mavVel_(1),mavVel_(2), 0,0,0);
       break;
     }
     case ONGROUND:{
@@ -406,13 +433,14 @@ void geometricCtrl::cmdloopCallback(const ros::TimerEvent &event) {
       if(current_state_.mode!="AUTO.LAND"){
       land_cmd_.request.yaw = mavYaw_;
       land_client_.call(land_cmd_);
-      if(land_cmd_.response.success == true)
-      ROS_INFO("landing");
+      if(land_cmd_.response.success == false)
+      ROS_INFO("land_request failed");
       }
       if(mav_status == MAV_STATE_STANDBY)
       node_state = ONGROUND;
     }
   }
+  sequenceCallback();
   rvisualize();
   pubDebugInfo(desired_acc,Kpos_.asDiagonal()*(mavPos_-targetPos_),Kvel_.asDiagonal()*(mavVel_-targetVel_),int(node_state));
 }

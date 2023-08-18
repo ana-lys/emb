@@ -8,6 +8,7 @@
 #include <std_srvs/Empty.h>
 #include <tf/tf.h>
 #include <tf/transform_broadcaster.h>
+#include <marker_planner/terminate.h>
 
 namespace whycon {
   class WhyConROS {
@@ -16,19 +17,21 @@ namespace whycon {
 
       void on_image(const sensor_msgs::ImageConstPtr& image_msg, const sensor_msgs::CameraInfoConstPtr& info_msg);
       bool reset(std_srvs::Empty::Request& request, std_srvs::Empty::Response& response);
-
+      bool terminateCallback(marker_planner::terminate::Request& request, marker_planner::terminate::Response& response);
     private:
 			void load_transforms(void);
       void publish_results(const std_msgs::Header& header, const cv_bridge::CvImageConstPtr& cv_ptr);
       
 			whycon::DetectorParameters parameters;
       boost::shared_ptr<whycon::LocalizationSystem> system;
-      bool is_tracking, should_reset;
+      bool is_tracking, should_reset , should_shutdown;
       int max_attempts, max_refine;
       double offsetx_,offsety_;
       std::string world_frame_id, frame_id;
 			int targets;
       double xscale, yscale;
+      marker_planner::terminate markerTerminate;
+      ros::ServiceServer terminateServer;
 
 			std::vector<double> projection;
 			tf::Transform similarity;

@@ -15,6 +15,16 @@ find_package(catkin REQUIRED COMPONENTS
   geometric_controller
 )
 
+add_service_files(
+  FILES
+  terminate.srv
+)
+
+generate_messages(
+  DEPENDENCIES
+  std_msgs
+)
+
 include_directories(
   ${catkin_INCLUDE_DIRS}
  )
