@@ -72,6 +72,12 @@ enum class MAV_STATE {
   MAV_STATE_FLIGHT_TERMINATION,
 };
 
+enum SETPOINT_TYPE : int
+{
+  SETPOINT_TYPE_GPS,
+  SETPOINT_TYPE_LOCAL
+};
+
 
 class geometricCtrl {
  private:

@@ -15,6 +15,7 @@
 #include <sys/types.h>
 
 int count,goal,index_ = 0 ;
+int setpoint_type = 0;
 bool script_init = true;
 controller_msgs::setmode setModeCall;
 ros::ServiceClient setModeClient,startClient;
@@ -104,6 +105,7 @@ void StartSeq(Sequence &seq,int &number){
       ros::Duration(0.25).sleep();
       script_init = false;
       controller_msgs::start Start;
+      Start.request.type = setpoint_type;
       Start.request.seq = number + 1;
       Start.request.sub =0.0;
       Start.request.target = seq.pose_array;
@@ -280,6 +282,13 @@ int main(int argc, char** argv)
   YAML::Node yaml_node = YAML::LoadFile(ros::package::getPath("sequence_controller") + "/cfg/seq.yaml");
   ros::Duration(1.0).sleep();
   ros::Rate rate(10.0);
+
+  if (argc < 2)
+    setpoint_type = 0; //SETPOINT_TYPE::SETPOINT_TYPE_GPS
+  else {
+    char char_setpoint_type = argv[1][0];
+    setpoint_type = char_setpoint_type - '0';
+  }  
   
   // Process the YAML data
   int count,goal;
